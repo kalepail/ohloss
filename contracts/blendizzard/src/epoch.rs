@@ -297,11 +297,6 @@ pub(crate) fn initialize_first_epoch(env: &Env, epoch_duration: u64) {
 // Query Functions
 // ============================================================================
 
-/// Get the current epoch number
-#[allow(dead_code)]
-pub(crate) fn get_current_epoch_number(env: &Env) -> u32 {
-    storage::get_current_epoch(env)
-}
 
 /// Get faction standings for a specific epoch
 pub(crate) fn get_faction_standings(env: &Env, epoch: u32) -> Result<Map<u32, i128>, Error> {

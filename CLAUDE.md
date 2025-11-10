@@ -137,7 +137,26 @@ stellar contract deploy \
 3. **Faction Points (fp)**: Player scoring mechanism with multipliers
    - Amount multiplier: Asymptotic curve toward $1,000 USD deposit
    - Time multiplier: Asymptotic curve toward 30 days holding
-   - Reset penalty: >50% withdrawal during epoch resets time to 0
+   - Reset penalty: >50% net withdrawal between epochs resets time to 0
+   - **Cross-Epoch Model**: FP calculated once at first game of epoch based on vault balance
+
+### Architecture Model: Cross-Epoch Balance Tracking
+
+**Key Design Principle**: Users interact directly with fee-vault-v2 for deposits/withdrawals. Blendizzard queries balances and enforces game rules at epoch boundaries.
+
+**Flow:**
+1. User deposits to fee-vault-v2 directly (no intermediate Blendizzard deposit call)
+2. User plays first game of Epoch N → Blendizzard queries vault balance
+3. Balance compared to last epoch → If >50% withdrawal, reset time multiplier
+4. FP calculated based on current balance + multipliers
+5. FP remains valid for entire epoch (even if user withdraws mid-epoch)
+6. Epoch N+1 starts → Fresh calculation at first game
+
+**Benefits:**
+- Simpler user flow (direct vault interaction)
+- Reduced storage (~32 bytes per active user)
+- Rewards sustained balances across many epochs
+- Accepts mid-epoch capital flexibility
 
 ### Contract Structure
 
@@ -146,16 +165,21 @@ contracts/blendizzard/src/
 ├── lib.rs              # Main contract entry point
 ├── types.rs            # Shared data structures and enums
 ├── test.rs             # Integration tests
-└── [planned modules]
+└── [modules]
     ├── storage.rs      # Storage utilities
-    ├── vault.rs        # Vault operations (deposit/withdraw)
+    ├── vault.rs        # Vault balance queries and cross-epoch comparison
     ├── faction.rs      # Faction management
     ├── faction_points.rs  # FP calculation with multipliers
-    ├── game.rs         # Game lifecycle (start/end)
+    ├── game.rs         # Game lifecycle (start/end) with epoch initialization
     ├── epoch.rs        # Epoch cycling and management
     ├── rewards.rs      # Reward distribution
+    ├── events.rs       # Event definitions
     └── errors.rs       # Error definitions
 ```
+
+**Note**: `vault.rs` no longer contains deposit/withdraw methods. It provides:
+- `get_vault_balance()` - Query user balance from fee-vault-v2
+- `check_cross_epoch_withdrawal_reset()` - Compare balances between epochs
 
 ### External Dependencies
 
@@ -163,8 +187,9 @@ The contract integrates with three external Soroban contracts:
 
 1. **fee-vault-v2** (https://github.com/script3/fee-vault-v2)
    - Yield-generating vault for BLND token
-   - Blendizzard acts as admin to withdraw accumulated fees
-   - Methods: `deposit()`, `withdraw()`, `get_underlying_tokens()`, `admin_withdraw()`
+   - **Users interact directly**: Call `deposit()` and `withdraw()` on fee-vault-v2
+   - **Blendizzard queries balances**: `get_underlying_tokens(user)` at first game of epoch
+   - **Admin role**: Blendizzard withdraws accumulated fees via `admin_withdraw()`
 
 2. **Soroswap Router** (https://github.com/soroswap/core)
    - DEX for BLND → USDC conversion during epoch cycling
@@ -176,12 +201,38 @@ The contract integrates with three external Soroban contracts:
 
 ### Data Structures
 
-Key storage types defined in docs/PLAN.md:
-- `User`: Persistent user data across epochs
-- `EpochUser`: Per-epoch user state (fp, withdrawals, faction)
+Key storage types (defined in contracts/blendizzard/src/types.rs):
+
+**User (Persistent across epochs):**
+```rust
+pub struct User {
+    pub selected_faction: u32,       // Persistent faction preference
+    pub deposit_timestamp: u64,      // Time multiplier tracking
+    pub last_epoch_balance: i128,    // For cross-epoch comparison
+}
+```
+
+**EpochUser (Per-epoch state):**
+```rust
+pub struct EpochUser {
+    pub epoch_faction: Option<u32>,      // Locked faction for this epoch
+    pub initial_balance: i128,           // Vault snapshot at first game
+    pub available_fp: i128,              // Spendable FP
+    pub locked_fp: i128,                 // FP locked in active games
+    pub total_fp_contributed: i128,      // Reward distribution basis
+}
+```
+
+**Other types:**
 - `EpochInfo`: Epoch metadata and standings
 - `GameSession`: Game session tracking
 - `GameOutcome`: Verified game results
+
+**Key Changes in Cross-Epoch Architecture:**
+- Removed `User.total_deposited` (query vault instead)
+- Removed `EpochUser.withdrawn_this_epoch` (no within-epoch tracking)
+- Renamed `initial_epoch_balance` → `initial_balance` (clearer naming)
+- Added `User.last_epoch_balance` (for cross-epoch withdrawal detection)
 
 Storage keys use enum-based typing for collision-free access:
 ```rust
@@ -233,19 +284,28 @@ let result = temp
 The contract MUST maintain these invariants at all times:
 
 1. **FP Conservation**: `sum(all_users.available_fp + locked_fp) = total_fp_in_system`
-2. **Deposit Tracking**: `sum(user_deposits) <= fee_vault.get_underlying_tokens(contract)`
+2. **Balance Consistency**: FP calculated from vault balances at epoch boundaries
+   - `EpochUser.initial_balance` matches vault balance at first game of epoch
+   - Users may deposit/withdraw mid-epoch without FP recalculation
 3. **Faction Immutability**: Once locked in epoch, faction cannot change
 4. **Reward Distribution**: `sum(claimed_rewards) <= epoch.reward_pool`
 5. **Session Uniqueness**: Each `session_id` is unique and consumed after game end
+6. **Cross-Epoch Reset**: >50% net withdrawal between epochs triggers time multiplier reset
 
 ## Security Considerations
 
 - **Flash Deposit Attack**: Mitigated by time multiplier (starts at 1.0x)
-- **Epoch Boundary Manipulation**: Snapshot fp at first game start
+- **Epoch Boundary Gaming**: Cross-epoch comparison allows timing attacks, accepted trade-off
+  - Users can time deposits/withdrawals around epoch boundaries
+  - FP remains valid for entire epoch even after mid-epoch withdrawals
+  - Design prioritizes sustained balances over micro-management
 - **Faction Switching**: Faction locks on first game of epoch
 - **Integer Overflow**: Use checked arithmetic everywhere
 - **Replay Attacks**: Session IDs are unique and single-use
 - **Oracle Trust**: Multi-sig oracle for Phase 1-2, migrate to ZK proofs later
+- **Direct Vault Interaction**: Users who deposit/withdraw via vault directly (bypassing UI)
+  - Balance correctly tracked via queries at first game
+  - No security issue, just unconventional UX
 
 ## Bun-Specific Patterns
 

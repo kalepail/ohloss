@@ -11,6 +11,8 @@ use crate::types::{EpochUser, FIXED_POINT_ONE, MAX_AMOUNT_USD, MAX_TIME_SECONDS,
 
 /// Calculate faction points for a user in the current epoch
 ///
+/// **NEW ARCHITECTURE:** Queries vault balance instead of using cached User.total_deposited
+///
 /// From PLAN.md:
 /// ```
 /// fp = base_deposit_amount * amount_multiplier(deposit_amount) * time_multiplier(time_held)
@@ -43,8 +45,8 @@ pub(crate) fn calculate_faction_points(env: &Env, user: &Address) -> Result<i128
     // Get user data
     let user_data = storage::get_user(env, user).ok_or(Error::InsufficientBalance)?;
 
-    // Base amount is total deposited
-    let base_amount = user_data.total_deposited;
+    // NEW: Query vault balance instead of using cached total_deposited
+    let base_amount = crate::vault::get_vault_balance(env, user);
 
     // If no deposit, no faction points
     if base_amount == 0 {
@@ -180,6 +182,8 @@ fn calculate_fp_from_multipliers(
 
 /// Initialize or update faction points for a user in the current epoch
 ///
+/// **NEW ARCHITECTURE:** Snapshots vault balance at epoch start
+///
 /// This is called when a user starts their first game in an epoch.
 /// It calculates their total FP and sets it as available_fp.
 ///
@@ -191,25 +195,25 @@ fn calculate_fp_from_multipliers(
 /// # Returns
 /// Total faction points calculated
 pub(crate) fn initialize_epoch_fp(env: &Env, user: &Address, current_epoch: u32) -> Result<i128, Error> {
-    // Calculate total FP
+    // Calculate total FP (queries vault internally)
     let total_fp = calculate_faction_points(env, user)?;
 
-    // Get user's current deposit amount for initial_epoch_balance
-    let user_data = storage::get_user(env, user).ok_or(Error::InsufficientBalance)?;
+    // Get current vault balance for snapshot
+    let current_balance = crate::vault::get_vault_balance(env, user);
 
     // Get or create epoch user data
     let mut epoch_user = storage::get_epoch_user(env, current_epoch, user).unwrap_or(EpochUser {
         epoch_faction: None,
+        initial_balance: current_balance, // Snapshot current balance
         available_fp: 0,
         locked_fp: 0,
         total_fp_contributed: 0,
-        withdrawn_this_epoch: 0,
-        initial_epoch_balance: user_data.total_deposited,
     });
 
     // Set available FP (only if not already set)
     if epoch_user.available_fp == 0 && epoch_user.locked_fp == 0 {
         epoch_user.available_fp = total_fp;
+        epoch_user.initial_balance = current_balance; // Update snapshot
     }
 
     // Save epoch user data
@@ -256,88 +260,4 @@ pub(crate) fn lock_fp(env: &Env, user: &Address, amount: i128, current_epoch: u3
     Ok(())
 }
 
-/// Unlock faction points (return to available pool)
-///
-/// Used when a game is cancelled or needs to be unwound.
-///
-/// # Arguments
-/// * `env` - Contract environment
-/// * `user` - User whose FP to unlock
-/// * `amount` - Amount of FP to unlock
-/// * `current_epoch` - Current epoch number
-#[allow(dead_code)]
-pub(crate) fn unlock_fp(env: &Env, user: &Address, amount: i128, current_epoch: u32) -> Result<(), Error> {
-    let mut epoch_user = storage::get_epoch_user(env, current_epoch, user)
-        .ok_or(Error::InsufficientFactionPoints)?;
 
-    // Move FP from locked back to available
-    epoch_user.locked_fp = epoch_user
-        .locked_fp
-        .checked_sub(amount)
-        .ok_or(Error::OverflowError)?;
-
-    epoch_user.available_fp = epoch_user
-        .available_fp
-        .checked_add(amount)
-        .ok_or(Error::OverflowError)?;
-
-    // Save epoch user data
-    storage::set_epoch_user(env, current_epoch, user, &epoch_user);
-
-    Ok(())
-}
-
-/// Transfer faction points from loser to winner
-///
-/// Called at end of game. Removes FP from loser's locked pool and
-/// adds to winner's available pool. Updates contribution tracking.
-///
-/// # Arguments
-/// * `env` - Contract environment
-/// * `winner` - Winner's address
-/// * `loser` - Loser's address
-/// * `amount` - Amount of FP to transfer
-/// * `current_epoch` - Current epoch number
-pub(crate) fn transfer_fp(
-    env: &Env,
-    winner: &Address,
-    loser: &Address,
-    amount: i128,
-    current_epoch: u32,
-) -> Result<(), Error> {
-    // Remove from loser's locked FP
-    let mut loser_epoch = storage::get_epoch_user(env, current_epoch, loser)
-        .ok_or(Error::InsufficientFactionPoints)?;
-
-    loser_epoch.locked_fp = loser_epoch
-        .locked_fp
-        .checked_sub(amount)
-        .ok_or(Error::OverflowError)?;
-
-    storage::set_epoch_user(env, current_epoch, loser, &loser_epoch);
-
-    // Add to winner's available FP
-    let mut winner_epoch = storage::get_epoch_user(env, current_epoch, winner)
-        .ok_or(Error::InsufficientFactionPoints)?;
-
-    winner_epoch.available_fp = winner_epoch
-        .available_fp
-        .checked_add(amount)
-        .ok_or(Error::OverflowError)?;
-
-    // Also remove from winner's locked FP (their wager is returned)
-    winner_epoch.locked_fp = winner_epoch
-        .locked_fp
-        .checked_sub(amount)
-        .ok_or(Error::OverflowError)?;
-
-    // Update total contributed (winner contributes the won amount)
-    winner_epoch.total_fp_contributed = winner_epoch
-        .total_fp_contributed
-        .checked_add(amount)
-        .ok_or(Error::OverflowError)?;
-
-    storage::set_epoch_user(env, current_epoch, winner, &winner_epoch);
-
-    Ok(())
-}

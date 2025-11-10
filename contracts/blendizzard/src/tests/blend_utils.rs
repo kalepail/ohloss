@@ -169,10 +169,16 @@ pub fn create_blend_pool(
 
     // Add reward to backstop
     blend_fixture.backstop.add_reward(&pool, &None);
+    blend_fixture.backstop.distribute();
 
     // Wait a week and start emissions (matching kalepail/fee-vault-v2 pattern)
     env.jump(ONE_DAY_LEDGERS * 7);
     blend_fixture.emitter.distribute();
+    blend_fixture.backstop.distribute();
+
+    // CRITICAL: gulp_emissions() forces pool to process emissions
+    // Without this, emissions accumulate but aren't claimable yet
+    pool_client.gulp_emissions();
 
     pool
 }

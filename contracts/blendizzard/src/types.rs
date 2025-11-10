@@ -33,17 +33,19 @@ pub struct User {
     /// The user's persistent faction selection (can be changed between epochs)
     pub selected_faction: u32,
 
-    /// Total amount currently deposited in the fee vault
-    pub total_deposited: i128,
-
     /// Timestamp when the user first deposited (or last reset via >50% withdrawal)
     pub deposit_timestamp: u64,
+
+    /// User's vault balance from the previous epoch (for cross-epoch comparison)
+    /// Used to detect >50% withdrawal between epochs
+    pub last_epoch_balance: i128,
 }
 
 /// Per-epoch user data
 ///
 /// Created when a user first interacts with the contract in a new epoch.
-/// Tracks faction points, withdrawals, and epoch-specific faction lock.
+/// Tracks faction points and epoch-specific faction lock.
+/// FP is calculated once at first game of epoch based on vault balance.
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct EpochUser {
@@ -51,7 +53,12 @@ pub struct EpochUser {
     /// None = not yet locked, Some(faction_id) = locked
     pub epoch_faction: Option<u32>,
 
+    /// User's vault balance snapshot at first game of this epoch
+    /// Used to save the balance this epoch's FP was calculated from
+    pub initial_balance: i128,
+
     /// Available faction points (not locked in games)
+    /// Calculated once at first game of epoch and remains valid until next epoch
     pub available_fp: i128,
 
     /// Faction points currently locked in active games
@@ -60,13 +67,6 @@ pub struct EpochUser {
     /// Total faction points contributed to the user's faction this epoch
     /// Used for reward distribution calculation
     pub total_fp_contributed: i128,
-
-    /// Amount withdrawn during this epoch (for >50% reset tracking)
-    pub withdrawn_this_epoch: i128,
-
-    /// User's total_deposited at the start of this epoch
-    /// Used to check if withdrawn_this_epoch > 50% of this value
-    pub initial_epoch_balance: i128,
 }
 
 /// Epoch metadata

@@ -1,5 +1,19 @@
 # Blendizzard - Technical Plan
 
+## ⚠️ Architecture Update: Cross-Epoch Balance Tracking
+
+**Implemented**: December 2024
+
+This document reflects the **cross-epoch balance tracking architecture**:
+- Users deposit/withdraw directly to fee-vault-v2 (no intermediate Blendizzard calls)
+- Balances queried from vault at first game of each epoch
+- FP calculated once per epoch and remains valid until next epoch
+- 50% withdrawal rule enforced via cross-epoch comparison (not within-epoch)
+
+See `CLAUDE.md` for detailed architectural explanation.
+
+---
+
 ## Executive Summary
 
 Blendizzard is a faction-based competitive gaming protocol on Stellar's Soroban platform that combines DeFi yield generation with gaming mechanics. Players deposit assets into a yield-generating vault (via Blend protocol), earn faction points (fp) based on their deposit amount and time, and compete in games by wagering these points. Every 4-day epoch, the winning faction shares the accumulated yield (BLND converted to USDC).
@@ -53,10 +67,10 @@ let multiplier = FIXED_POINT_ONE + ((time_held_seconds * FIXED_POINT_ONE) / (tim
 
 **Note:** Actual curve parameters should be tuned during testing for game balance.
 
-#### Deposit Reset Rule
-- Withdraw > 50% of total deposit during an epoch → resets time deposited to 0
-- Check: `withdrawn_this_epoch + new_withdrawal > (initial_epoch_balance / 2)`
-- Prevents gaming the system by flash-depositing before epoch end
+#### Deposit Reset Rule (Cross-Epoch)
+- Net withdrawal > 50% between epochs → resets time deposited to 0
+- Check: `last_epoch_balance - current_balance > (last_epoch_balance / 2)`
+- Prevents gaming the system by maintaining sustained commitment across epochs
 
 ## Smart Contract Architecture
 
@@ -85,10 +99,10 @@ get_underlying_admin_balance() -> i128
 ```
 
 **Integration Pattern:**
-- Blendizzard contract acts as intermediary between users and fee-vault
-- Blendizzard holds the fee-vault shares on behalf of users
+- Users deposit/withdraw directly to fee-vault-v2 (no Blendizzard intermediation)
+- Blendizzard queries user balances via `get_underlying_tokens()` at game start
 - Admin of fee-vault is set to Blendizzard contract
-- Blendizzard can withdraw admin fees during epoch cycling
+- Blendizzard can withdraw admin fees during epoch cycling via `admin_withdraw()`
 
 #### 2. Soroswap Router
 **Purpose:** DEX for BLND → USDC conversion
@@ -168,20 +182,16 @@ fn remove_game(e: Env, id: Address)
 fn is_game(e: Env, id: Address) -> bool
 ```
 
-#### Vault Operations
+#### Vault Integration (Query-Based)
 
-```rust
-/// Deposit assets into the fee-vault
-/// Likely just a forward to the fee vault
-fn deposit(e: Env, user: Address, amount: i128)
+**ARCHITECTURE CHANGE**: Deposit/withdraw methods have been removed. Users interact directly with fee-vault-v2.
 
-/// Withdraw assets from the fee-vault
-/// Need to track and check if a deposit time multiplier reset is necessary
-/// Will require tracking the total amount in the epoch at start and what the
-/// player has drawn down from that and if it has crossed 50%
-/// If there's not player activity for the epoch yet we'll need to initialize it here
-fn withdraw(e: Env, user: Address, amount: i128)
-```
+Blendizzard queries balances from vault when needed:
+- At first game of each epoch: queries `get_underlying_tokens()` to calculate FP
+- Cross-epoch comparison: checks if net withdrawal >50% to trigger time reset
+- Reward distribution: admin withdraws accumulated BLND via `admin_withdraw()`
+
+No explicit deposit/withdraw APIs exposed by Blendizzard contract.
 
 #### Faction Selection
 
@@ -201,12 +211,11 @@ fn select_faction(e: Env, user: Address, faction: u32)
 
 ```rust
 /// Get player information
-/// Returns: selected faction, total amount of deposited balance
+/// Returns: selected faction, last epoch balance, deposit timestamp
 fn get_player(e: Env, user: Address) -> PlayerInfo
 
 /// Get player's epoch-specific information
-/// Returns: selected faction, number of total faction points, number of available
-/// faction points for epoch, amount of deposited balance withdrawn this epoch
+/// Returns: epoch faction, initial balance, available fp, locked fp, total fp contributed
 fn get_epoch_player(e: Env, user: Address) -> EpochPlayerInfo
 ```
 
@@ -239,6 +248,33 @@ fn end_game(
     proof: Bytes,
     outcome: GameOutcome,
 )
+```
+
+**FP Spending Mechanics:**
+
+When a game ends:
+1. **Both players' wagers are spent/burned** - FP is consumed and removed from circulation
+2. **Only the winner's wager contributes to faction standings** - This determines the winning faction at epoch end
+3. **Loser's wager vanishes** - It doesn't go to the winner or contribute to any faction
+4. **Winner gains no FP** - The reward is the contribution to their faction's score
+
+This creates a zero-sum, resource-scarce environment where:
+- Every game reduces total available FP
+- Strategic wager sizing matters (risk vs. faction contribution)
+- Only successful players contribute to faction victory
+- FP scarcity increases as epoch progresses
+
+**Implementation Details:**
+```rust
+// Both players: Remove wager from locked_fp (spend/burn)
+winner_epoch.locked_fp -= winner_wager;
+loser_epoch.locked_fp -= loser_wager;
+
+// Only winner: Add wager to total_fp_contributed
+winner_epoch.total_fp_contributed += winner_wager;
+
+// Update faction standings with winner's contribution
+faction_standings[winner_faction] += winner_wager;
 ```
 
 #### Epoch Management
@@ -296,19 +332,18 @@ fn upgrade(e: Env, new_wasm_hash: BytesN<32>)
 #[contracttype]
 pub struct User {
     pub selected_faction: u32,
-    pub total_deposited: i128,
     pub deposit_timestamp: u64,
+    pub last_epoch_balance: i128,  // For cross-epoch withdrawal comparison
 }
 
 /// Per-epoch user data
 #[contracttype]
 pub struct EpochUser {
     pub epoch_faction: Option<u32>,
+    pub initial_balance: i128,  // Balance at first game of epoch
     pub available_fp: i128,
     pub locked_fp: i128,
     pub total_fp_contributed: i128,
-    pub withdrawn_this_epoch: i128,
-    pub initial_epoch_balance: i128,
 }
 
 /// Epoch metadata
@@ -360,16 +395,18 @@ pub struct GameOutcome {
 #[contracttype]
 pub struct PlayerInfo {
     pub selected_faction: u32,
-    pub total_deposited: i128,
+    pub deposit_timestamp: u64,
+    pub last_epoch_balance: i128,
 }
 
 /// Player epoch info returned by get_epoch_player
 #[contracttype]
 pub struct EpochPlayerInfo {
     pub epoch_faction: Option<u32>,
-    pub total_fp: i128,
+    pub initial_balance: i128,
     pub available_fp: i128,
-    pub withdrawn_this_epoch: i128,
+    pub locked_fp: i128,
+    pub total_fp_contributed: i128,
 }
 ```
 
@@ -443,14 +480,14 @@ pub enum Error {
 **Goal:** Minimal viable product with basic functionality
 
 **Deliverables:**
-- [ ] Contract initialization and admin functions
-- [ ] Vault deposit/withdraw integration (no multipliers)
-- [ ] Faction selection (persistent only)
-- [ ] Basic FP calculation (1:1 with deposit amount)
-- [ ] Game registry (add/remove/is_game)
-- [ ] Simple game lifecycle (start/end with oracle verification)
+- [x] Contract initialization and admin functions
+- [x] ~~Vault deposit/withdraw integration~~ → Changed to query-based balance retrieval
+- [x] Faction selection (persistent only)
+- [x] Basic FP calculation with multipliers (using cross-epoch model)
+- [x] Game registry (add/remove/is_game)
+- [x] Simple game lifecycle (start/end with oracle verification)
 - [ ] Manual epoch cycling (admin-triggered)
-- [ ] Basic tests for all functions
+- [ ] Comprehensive tests for all functions
 
 **Testing Focus:**
 - Unit tests for each function
@@ -461,13 +498,13 @@ pub enum Error {
 **Goal:** Complete feature set with proper economics
 
 **Deliverables:**
-- [ ] Implement amount and time multipliers
-- [ ] Deposit reset logic (>50% withdrawal)
-- [ ] Epoch faction locking (on first game)
+- [x] Implement amount and time multipliers
+- [x] Cross-epoch withdrawal reset logic (>50% net withdrawal)
+- [x] Epoch faction locking (on first game)
 - [ ] BLND → USDC conversion via Soroswap
 - [ ] Reward calculation and claiming
 - [ ] Automatic epoch cycling capability
-- [ ] Comprehensive event emissions
+- [x] Comprehensive event emissions
 - [ ] Storage optimization
 
 **Testing Focus:**
@@ -512,9 +549,10 @@ pub enum Error {
    total_fp_in_system = sum(all users: available_fp + locked_fp)
    ```
 
-2. **Deposit Tracking:**
+2. **Balance Queries:**
    ```rust
-   sum(user_deposits) <= fee_vault.get_underlying_tokens(contract_address)
+   // Balances are always queried from fee-vault-v2, no local tracking
+   user_balance = fee_vault.get_underlying_tokens(user_address)
    ```
 
 3. **Faction Immutability:**
@@ -543,8 +581,9 @@ pub enum Error {
 #### 2. Epoch Boundary Manipulation
 **Threat:** User times deposits/withdrawals around epoch boundaries
 **Mitigation:**
-- Snapshot fp at first game start in epoch
-- Reset penalty for >50% withdrawal
+- Snapshot fp at first game start in epoch (balance remains valid for entire epoch)
+- Cross-epoch reset penalty: >50% net withdrawal between epochs resets time multiplier
+- FP remains valid even if user withdraws during epoch (epoch-based model)
 
 #### 3. Faction Switching Exploits
 **Threat:** User switches faction mid-epoch to be on winning side

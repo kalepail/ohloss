@@ -3,7 +3,7 @@ use soroban_sdk::{Address, Bytes, BytesN, Env};
 use crate::errors::Error;
 use crate::events::{emit_game_ended, emit_game_started};
 use crate::faction::lock_epoch_faction;
-use crate::faction_points::{initialize_epoch_fp, lock_fp, transfer_fp};
+use crate::faction_points::{initialize_epoch_fp, lock_fp};
 use crate::storage;
 use crate::types::{GameOutcome, GameSession, GameStatus};
 
@@ -247,29 +247,48 @@ pub(crate) fn end_game(
         )
     };
 
-    // Transfer FP from loser to winner
-    // Winner gets their wager back + loser's wager
+    // Spend FP: Both players LOSE their wagered FP (it's consumed/burned)
+    // Only the winner's wager contributes to their faction standings
     let current_epoch = storage::get_current_epoch(env);
-    transfer_fp(env, winner, loser, winner_wager, current_epoch)?;
-    transfer_fp(env, winner, loser, loser_wager, current_epoch)?;
+
+    // Get both players' epoch data
+    let mut winner_epoch = storage::get_epoch_user(env, current_epoch, winner)
+        .ok_or(Error::InsufficientFactionPoints)?;
+    let mut loser_epoch = storage::get_epoch_user(env, current_epoch, loser)
+        .ok_or(Error::InsufficientFactionPoints)?;
+
+    // Step 1: Remove winner's wager from locked_fp (spent/burned)
+    winner_epoch.locked_fp = winner_epoch
+        .locked_fp
+        .checked_sub(winner_wager)
+        .ok_or(Error::OverflowError)?;
+
+    // Step 2: Remove loser's wager from locked_fp (spent/burned)
+    loser_epoch.locked_fp = loser_epoch
+        .locked_fp
+        .checked_sub(loser_wager)
+        .ok_or(Error::OverflowError)?;
+
+    // Step 3: Only winner's wager contributes to faction standings
+    winner_epoch.total_fp_contributed = winner_epoch
+        .total_fp_contributed
+        .checked_add(winner_wager)
+        .ok_or(Error::OverflowError)?;
+
+    // Save both players' updated data
+    storage::set_epoch_user(env, current_epoch, winner, &winner_epoch);
+    storage::set_epoch_user(env, current_epoch, loser, &loser_epoch);
 
     // Update session
     session.status = GameStatus::Completed;
     session.winner = Some(outcome.winner);
     storage::set_session(env, session_id, &session);
 
-    // Update faction standings
-    update_faction_standings(env, winner, winner_wager + loser_wager, current_epoch)?;
+    // Update faction standings (only winner's wager contributes)
+    update_faction_standings(env, winner, winner_wager, current_epoch)?;
 
-    // Emit event
-    emit_game_ended(
-        env,
-        game_id,
-        session_id,
-        winner,
-        loser,
-        winner_wager + loser_wager,
-    );
+    // Emit event (only winner's wager counts as contribution)
+    emit_game_ended(env, game_id, session_id, winner, loser, winner_wager);
 
     Ok(())
 }
@@ -279,12 +298,46 @@ pub(crate) fn end_game(
 // ============================================================================
 
 /// Initialize faction points for a player if this is their first game in the epoch
+///
+/// **NEW ARCHITECTURE (Cross-Epoch Balance Comparison):**
+/// 1. Query current vault balance
+/// 2. Check for >50% withdrawal since last epoch
+/// 3. Initialize deposit_timestamp if first-time user
+/// 4. Calculate FP based on current balance + multipliers
+/// 5. Save epoch snapshot and update last_epoch_balance
 fn initialize_player_epoch(env: &Env, player: &Address, current_epoch: u32) -> Result<(), Error> {
     // Check if player already has epoch data
-    if !storage::has_epoch_user(env, current_epoch, player) {
-        // First game this epoch - initialize FP
-        initialize_epoch_fp(env, player, current_epoch)?;
+    if storage::has_epoch_user(env, current_epoch, player) {
+        // Already initialized this epoch
+        return Ok(());
     }
+
+    // STEP 1: Query current vault balance
+    let current_balance = crate::vault::get_vault_balance(env, player);
+
+    // STEP 2: Get or create user record
+    let mut user_data = storage::get_user(env, player).unwrap_or(crate::types::User {
+        selected_faction: 0, // Default to WholeNoodle
+        deposit_timestamp: 0,
+        last_epoch_balance: 0,
+    });
+
+    // STEP 3: Initialize deposit_timestamp if first-time user
+    if user_data.deposit_timestamp == 0 && current_balance > 0 {
+        user_data.deposit_timestamp = env.ledger().timestamp();
+    }
+
+    // STEP 4: Check for cross-epoch withdrawal reset (>50%)
+    let _reset = crate::vault::check_cross_epoch_withdrawal_reset(env, player, current_balance)?;
+
+    // STEP 5: Calculate FP based on current balance and multipliers
+    // This calls initialize_epoch_fp which will use the balance we pass
+    initialize_epoch_fp(env, player, current_epoch)?;
+
+    // STEP 6: Update last_epoch_balance for next epoch comparison
+    user_data.last_epoch_balance = current_balance;
+    storage::set_user(env, player, &user_data);
+
     Ok(())
 }
 

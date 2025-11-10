@@ -127,6 +127,11 @@ impl Blendizzard {
         storage::get_admin(&env)
     }
 
+    /// Get the current configuration
+    pub fn get_config(env: Env) -> Config {
+        storage::get_config(&env)
+    }
+
     /// Update global configuration
     ///
     /// Allows admin to update specific configuration parameters.
@@ -187,6 +192,9 @@ impl Blendizzard {
         }
 
         storage::set_config(&env, &config);
+
+        // Emit config updated event
+        events::emit_config_updated(&env, &admin);
 
         Ok(())
     }
@@ -266,34 +274,19 @@ impl Blendizzard {
     }
 
     // ========================================================================
-    // Vault Operations
+    // Vault Operations (REMOVED - Users interact directly with fee-vault-v2)
     // ========================================================================
 
-    /// Deposit assets into the fee-vault
-    ///
-    /// # Errors
-    /// * `InvalidAmount` - If amount is <= 0
-    /// * `FeeVaultError` - If fee-vault deposit fails
-    /// * `ContractPaused` - If contract is in emergency pause mode
-    pub fn deposit(env: Env, user: Address, amount: i128) -> Result<(), Error> {
-        storage::require_not_paused(&env)?;
-        vault::deposit(&env, &user, amount)
-    }
-
-    /// Withdraw assets from the fee-vault
-    ///
-    /// Checks if withdrawal exceeds 50% of initial epoch balance and resets
-    /// deposit timestamp if needed.
-    ///
-    /// # Errors
-    /// * `InvalidAmount` - If amount is <= 0
-    /// * `InsufficientBalance` - If user doesn't have enough deposited
-    /// * `FeeVaultError` - If fee-vault withdrawal fails
-    /// * `ContractPaused` - If contract is in emergency pause mode
-    pub fn withdraw(env: Env, user: Address, amount: i128) -> Result<(), Error> {
-        storage::require_not_paused(&env)?;
-        vault::withdraw(&env, &user, amount)
-    }
+    // ARCHITECTURE CHANGE: deposit() and withdraw() have been removed.
+    // Users now interact directly with the fee-vault-v2 contract for deposits/withdrawals.
+    // Blendizzard queries vault balances on-demand at game start and performs
+    // cross-epoch withdrawal detection at that time.
+    //
+    // To deposit: Call fee-vault-v2.deposit() directly
+    // To withdraw: Call fee-vault-v2.withdraw() directly
+    //
+    // The 50% withdrawal reset rule is enforced via cross-epoch balance comparison
+    // when users play their first game of a new epoch.
 
     // ========================================================================
     // Faction Selection
@@ -333,30 +326,29 @@ impl Blendizzard {
     /// Get player's epoch-specific information
     ///
     /// Returns complete epoch-specific data including locked faction, available/locked FP,
-    /// total FP contributed, withdrawals, and initial epoch balance.
+    /// total FP contributed, and initial balance snapshot.
     ///
     /// If the user exists but hasn't played this epoch yet, returns a valid EpochUser with:
     /// - No faction locked (epoch_faction = None)
     /// - Zero faction points (available_fp = 0, locked_fp = 0)
-    /// - No contributions or withdrawals (total_fp_contributed = 0, withdrawn_this_epoch = 0)
-    /// - Initial balance matching current deposits
+    /// - No contributions (total_fp_contributed = 0)
+    /// - Initial balance of 0 (not yet snapshotted)
     ///
     /// # Errors
     /// * `UserNotFound` - If user has never interacted with the contract
     pub fn get_epoch_player(env: Env, user: Address) -> Result<types::EpochUser, Error> {
         // Verify user exists first
-        let user_data = storage::get_user(&env, &user).ok_or(Error::UserNotFound)?;
+        let _user_data = storage::get_user(&env, &user).ok_or(Error::UserNotFound)?;
 
         // Get epoch data - if user hasn't played this epoch, return valid defaults
         let current_epoch = storage::get_current_epoch(&env);
         let epoch_user =
             storage::get_epoch_user(&env, current_epoch, &user).unwrap_or(types::EpochUser {
                 epoch_faction: None,
+                initial_balance: 0,
                 available_fp: 0,
                 locked_fp: 0,
                 total_fp_contributed: 0,
-                withdrawn_this_epoch: 0,
-                initial_epoch_balance: user_data.total_deposited,
             });
 
         Ok(epoch_user)
@@ -400,8 +392,9 @@ impl Blendizzard {
 
     /// End a game session with outcome verification
     ///
-    /// Requires game contract authorization and transfers FP from loser to winner.
-    /// Updates faction standings. ZK proof verification handled client-side for MVP.
+    /// Requires game contract authorization. Both players' FP wagers are spent/burned.
+    /// Only the winner's wager contributes to their faction standings.
+    /// ZK proof verification handled client-side for MVP.
     ///
     /// # Errors
     /// * `SessionNotFound` - If session doesn't exist

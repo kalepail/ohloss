@@ -337,5 +337,5 @@ impl MockPool {
 
 - **blend-together**: `/Users/kalepail/Desktop/blend-together/contracts/hello_world/src/test/`
 - **fee-vault-v2**: `/Users/kalepail/Desktop/Web/Soroban/fee-vault-v2/src/tests/`
-- **soroswap**: `/tmp/soroswap-core/contracts/*/src/test/`
+- **soroswap**: `/Users/kalepail/Desktop/Web/Soroban/soroswap/core/contracts/*/src/test/`
 - **Stellar Docs**: https://developers.stellar.org/docs/build/smart-contracts/

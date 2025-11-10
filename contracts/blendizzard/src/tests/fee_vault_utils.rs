@@ -88,6 +88,8 @@ pub enum MockVaultDataKey {
     AdminBalance,
     /// Emissions available for claiming per reserve token ID
     Emissions(u32),
+    /// User underlying token balance (for cross-epoch architecture)
+    UserBalance(Address),
 }
 
 #[contract]
@@ -108,6 +110,16 @@ impl MockVault {
     /// Mock get_shares
     pub fn get_shares(_env: Env, _user: Address) -> i128 {
         0
+    }
+
+    /// Mock get_underlying_tokens - returns stored user balance
+    /// This is the key method for cross-epoch balance tracking
+    pub fn get_underlying_tokens(env: Env, user: Address) -> i128 {
+        let key = MockVaultDataKey::UserBalance(user);
+        env.storage()
+            .instance()
+            .get::<MockVaultDataKey, i128>(&key)
+            .unwrap_or(0)
     }
 
     /// Mock admin_withdraw - withdraws from stored admin balance
@@ -191,6 +203,14 @@ impl MockVault {
         env.storage()
             .instance()
             .set(&MockVaultDataKey::Emissions(reserve_token_id), &amount);
+    }
+
+    /// Set user balance for testing (cross-epoch architecture)
+    /// This is a test-only function to configure user balances in the mock vault
+    pub fn set_user_balance(env: Env, user: Address, amount: i128) {
+        env.storage()
+            .instance()
+            .set(&MockVaultDataKey::UserBalance(user), &amount);
     }
 }
 

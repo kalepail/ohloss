@@ -1,6 +1,3 @@
-use super::fee_vault_utils::{
-    create_mock_pool, create_mock_vault, create_test_fee_vault, FeeVaultClient,
-};
 use crate::{Blendizzard, BlendizzardClient};
 use soroban_sdk::testutils::{Address as _, Ledger as _};
 use soroban_sdk::{vec, Address, Env, Vec};
@@ -35,8 +32,6 @@ pub fn create_blendizzard_contract<'a>(
 ///
 /// Note: Assumes env already has mock_all_auths() called (via setup_test_env())
 /// This creates mock addresses for external contracts, not real instances.
-/// Use create_blendizzard_with_mock_vault() or create_blendizzard_with_real_vault()
-/// for tests that call deposit/withdraw.
 pub fn create_test_blendizzard<'a>(env: &Env, admin: &Address) -> BlendizzardClient<'a> {
     // Use mock addresses for external contracts
     // Smoke tests don't actually call these contracts, so mocks are sufficient
@@ -62,75 +57,6 @@ pub fn create_test_blendizzard<'a>(env: &Env, admin: &Address) -> BlendizzardCli
     )
 }
 
-/// Create Blendizzard contract with a simple mock vault for smoke testing
-///
-/// This uses a mock vault that implements the FeeVault interface but without
-/// complex constructor requirements. Perfect for smoke tests that need to call
-/// deposit/withdraw but don't need actual vault functionality.
-pub fn create_blendizzard_with_mock_vault<'a>(env: &Env, admin: &Address) -> BlendizzardClient<'a> {
-    // Create simple mock vault (no constructor auth issues)
-    let fee_vault = create_mock_vault(env);
-
-    let soroswap_router = Address::generate(env);
-    let blnd_token = Address::generate(env);
-    let usdc_token = Address::generate(env);
-    let epoch_duration = 345_600; // 4 days in seconds
-
-    // Reserve token IDs for claiming BLND emissions
-    // Using reserve 0, b-tokens (suppliers): reserve_index * 2 + 1 = 0 * 2 + 1 = 1
-    let reserve_token_ids = vec![env, 1];
-
-    create_blendizzard_contract(
-        env,
-        admin,
-        &fee_vault,
-        &soroswap_router,
-        &blnd_token,
-        &usdc_token,
-        epoch_duration,
-        reserve_token_ids,
-    )
-}
-
-/// Create Blendizzard contract with a real fee-vault for integration testing
-///
-/// This properly sets up a mock pool and real fee-vault instance.
-/// Use this for tests that actually interact with the fee-vault.
-#[allow(dead_code)]
-pub fn create_blendizzard_with_real_vault<'a>(
-    env: &Env,
-    admin: &Address,
-) -> (BlendizzardClient<'a>, FeeVaultClient<'a>) {
-    // Create mock pool for fee vault
-    let pool = create_mock_pool(env);
-    let usdc_token = Address::generate(env);
-
-    // Create fee vault with mock pool
-    let fee_vault_client = create_test_fee_vault(env, admin, &pool, &usdc_token);
-    let fee_vault = fee_vault_client.address.clone();
-
-    let soroswap_router = Address::generate(env);
-    let blnd_token = Address::generate(env);
-    let epoch_duration = 345_600; // 4 days in seconds
-
-    // Reserve token IDs for claiming BLND emissions
-    // Using reserve 0, b-tokens (suppliers): reserve_index * 2 + 1 = 0 * 2 + 1 = 1
-    let reserve_token_ids = vec![env, 1];
-
-    let blendizzard_client = create_blendizzard_contract(
-        env,
-        admin,
-        &fee_vault,
-        &soroswap_router,
-        &blnd_token,
-        &usdc_token,
-        epoch_duration,
-        reserve_token_ids,
-    );
-
-    (blendizzard_client, fee_vault_client)
-}
-
 /// Create Blendizzard contract with real Soroswap for epoch cycling tests
 ///
 /// This creates a complete test environment with:
@@ -144,9 +70,8 @@ pub fn create_blendizzard_with_soroswap<'a>(
     env: &Env,
     admin: &Address,
 ) -> BlendizzardClient<'a> {
-    use super::soroswap_utils::{
-        create_factory, create_router, create_token, add_liquidity,
-    };
+    use super::fee_vault_utils::create_mock_vault;
+    use super::soroswap_utils::{add_liquidity, create_factory, create_router, create_token};
 
     // Create mock vault
     let fee_vault = create_mock_vault(env);
@@ -157,9 +82,15 @@ pub fn create_blendizzard_with_soroswap<'a>(
 
     // Ensure token ordering (Soroswap requires token_0 < token_1)
     let (blnd_token, usdc_token) = if blnd_token_client.address < usdc_token_client.address {
-        (blnd_token_client.address.clone(), usdc_token_client.address.clone())
+        (
+            blnd_token_client.address.clone(),
+            usdc_token_client.address.clone(),
+        )
     } else {
-        (usdc_token_client.address.clone(), blnd_token_client.address.clone())
+        (
+            usdc_token_client.address.clone(),
+            blnd_token_client.address.clone(),
+        )
     };
 
     // Create Soroswap infrastructure

@@ -44,8 +44,8 @@ pub(crate) fn select_faction(env: &Env, user: &Address, faction: u32) -> Result<
     // Get or create user data
     let mut user_data = storage::get_user(env, user).unwrap_or_else(|| crate::types::User {
         selected_faction: faction,
-        total_deposited: 0,
         deposit_timestamp: 0,
+        last_epoch_balance: 0,
     });
 
     // Update faction selection (always allowed - affects future epochs)
@@ -87,11 +87,10 @@ pub(crate) fn lock_epoch_faction(env: &Env, user: &Address, current_epoch: u32) 
     // Get or create epoch user data
     let mut epoch_user = storage::get_epoch_user(env, current_epoch, user).unwrap_or(EpochUser {
         epoch_faction: None,
+        initial_balance: 0, // Will be set when FP is calculated
         available_fp: 0,
         locked_fp: 0,
         total_fp_contributed: 0,
-        withdrawn_this_epoch: 0,
-        initial_epoch_balance: 0, // Will be set when FP is calculated
     });
 
     // Check if already locked
@@ -111,25 +110,6 @@ pub(crate) fn lock_epoch_faction(env: &Env, user: &Address, current_epoch: u32) 
     Ok(selected_faction)
 }
 
-/// Get the user's faction for the current epoch
-///
-/// Returns the locked faction if it exists, otherwise the selected faction.
-///
-/// # Returns
-/// * `Some(faction_id)` if user has a faction (locked or selected)
-/// * `None` if user doesn't exist
-#[allow(dead_code)]
-pub(crate) fn get_epoch_faction(env: &Env, user: &Address, epoch: u32) -> Option<u32> {
-    // Try to get locked epoch faction first
-    if let Some(epoch_user) = storage::get_epoch_user(env, epoch, user) {
-        if let Some(faction) = epoch_user.epoch_faction {
-            return Some(faction);
-        }
-    }
-
-    // Fall back to selected faction
-    storage::get_user(env, user).map(|u| u.selected_faction)
-}
 
 /// Check if user's faction is locked for the current epoch
 pub(crate) fn is_faction_locked(env: &Env, user: &Address, epoch: u32) -> bool {

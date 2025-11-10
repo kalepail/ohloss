@@ -235,7 +235,7 @@ Every 4 days (345,600 seconds):
 
 ### Game Lifecycle
 - `start_game` - Lock FP and start game session
-- `end_game` - Verify outcome and transfer FP
+- `end_game` - Verify outcome and spend FP (winner's FP contributes to faction)
 
 ### Epoch Management
 - `get_epoch` - Get epoch information

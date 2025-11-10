@@ -26,26 +26,21 @@ pub struct GameRemoved {
     pub game_id: Address,
 }
 
-// ============================================================================
-// Vault Events
-// ============================================================================
-
 #[contractevent]
-pub struct Deposit {
-    #[topic]
-    pub user: Address,
-    pub amount: i128,
-    pub new_balance: i128,
+pub struct ConfigUpdated {
+    pub admin: Address,
 }
 
-#[contractevent]
-pub struct Withdraw {
-    #[topic]
-    pub user: Address,
-    pub amount: i128,
-    pub new_balance: i128,
-    pub reset: bool,
-}
+// ============================================================================
+// Vault Events (REMOVED - Users interact directly with fee-vault-v2)
+// ============================================================================
+//
+// Deposit and Withdraw events have been removed because:
+// - Users deposit/withdraw directly to fee-vault-v2
+// - Blendizzard no longer intermediates vault operations
+// - Fee-vault-v2 emits its own events for these operations
+//
+// Monitor fee-vault-v2's vault_deposit and vault_withdraw events instead.
 
 // ============================================================================
 // Faction Events
@@ -90,7 +85,7 @@ pub struct GameEnded {
     pub session_id: BytesN<32>,
     pub winner: Address,
     pub loser: Address,
-    pub fp_transferred: i128,
+    pub fp_contributed: i128,  // Winner's FP that contributes to faction standings
 }
 
 // ============================================================================
@@ -143,23 +138,10 @@ pub(crate) fn emit_game_removed(env: &Env, game_id: &Address) {
     .publish(env);
 }
 
-/// Emit deposit event
-pub(crate) fn emit_deposit(env: &Env, user: &Address, amount: i128, new_balance: i128) {
-    Deposit {
-        user: user.clone(),
-        amount,
-        new_balance,
-    }
-    .publish(env);
-}
-
-/// Emit withdraw event
-pub(crate) fn emit_withdraw(env: &Env, user: &Address, amount: i128, new_balance: i128, reset: bool) {
-    Withdraw {
-        user: user.clone(),
-        amount,
-        new_balance,
-        reset,
+/// Emit config updated event
+pub(crate) fn emit_config_updated(env: &Env, admin: &Address) {
+    ConfigUpdated {
+        admin: admin.clone(),
     }
     .publish(env);
 }
@@ -211,14 +193,14 @@ pub(crate) fn emit_game_ended(
     session_id: &BytesN<32>,
     winner: &Address,
     loser: &Address,
-    fp_transferred: i128,
+    fp_contributed: i128,
 ) {
     GameEnded {
         game_id: game_id.clone(),
         session_id: session_id.clone(),
         winner: winner.clone(),
         loser: loser.clone(),
-        fp_transferred,
+        fp_contributed,
     }
     .publish(env);
 }

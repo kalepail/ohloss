@@ -99,7 +99,7 @@ if reset {
 
 - **Critical Security Fix**: Added `game_id.require_auth()` to `end_game()`
 - Only whitelisted game contracts can submit outcomes
-- Prevents unauthorized manipulation of game results and FP transfers
+- Prevents unauthorized manipulation of game results and FP spending
 - Game contract must be a signer to end games
 
 ```rust
