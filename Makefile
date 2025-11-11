@@ -1,10 +1,22 @@
+default: build
+
+all: test
+
 build:
 	stellar contract build
 
-optimize:
-	make build
+optimize: build
 	stellar contract optimize --wasm target/wasm32v1-none/release/blendizzard.wasm
 	stellar contract optimize --wasm target/wasm32v1-none/release/number_guess.wasm
+
+test: build
+	cargo test
+
+fmt:
+	cargo fmt --all
+
+clean:
+	cargo clean
 
 bindings:
 	stellar contract bindings typescript \

@@ -249,6 +249,49 @@ impl Blendizzard {
     }
 
     // ========================================================================
+    // Migration Functions
+    // ========================================================================
+
+    /// Migration 1: Transition epoch data from persistent to temporary storage
+    ///
+    /// This migration is required when upgrading from a version that stored
+    /// epochs in persistent storage to one that uses temporary storage.
+    ///
+    /// # What it does
+    /// - Checks if the current epoch exists in temporary storage
+    /// - If not, reinitializes it with current timestamp and config
+    /// - Idempotent: safe to call multiple times
+    ///
+    /// # Impact on other data
+    /// - **User** (persistent): Unaffected, preserved across migration
+    /// - **EpochUser** (temporary): Will be recreated when users play their first game
+    /// - **Session** (temporary): Old game sessions are lost (acceptable, they expire quickly)
+    /// - **Claimed** (temporary): Old reward claims are lost, but so are the old epochs
+    /// - **Game whitelist** (persistent): Unaffected, preserved across migration
+    ///
+    /// # Errors
+    /// * `NotAdmin` - If caller is not the admin
+    pub fn migration_1__(env: Env) -> Result<(), Error> {
+        let admin = storage::get_admin(&env);
+        admin.require_auth();
+
+        // Get current epoch number (stored in instance storage, unaffected by migration)
+        let current_epoch_num = storage::get_current_epoch(&env);
+
+        // Check if epoch already exists in temporary storage
+        if storage::get_epoch(&env, current_epoch_num).is_some() {
+            // Already migrated, nothing to do
+            return Ok(());
+        }
+
+        // Epoch doesn't exist in temporary storage, reinitialize it
+        let config = storage::get_config(&env);
+        epoch::initialize_first_epoch(&env, config.epoch_duration);
+
+        Ok(())
+    }
+
+    // ========================================================================
     // Game Registry
     // ========================================================================
 
