@@ -100,27 +100,27 @@ fn test_number_guess_game_integration() {
 
     // Start game through number-guess contract
     // This will internally call Blendizzard to lock FP
-    let game_id = number_guess_client.start_game(&session_id, &player1, &player2, &wager1, &wager2);
+    number_guess_client.start_game(&session_id, &player1, &player2, &wager1, &wager2);
 
     // Verify FP is locked in Blendizzard
-    let _p1_epoch = blendizzard.get_epoch_player(&player1);
-    let _p2_epoch = blendizzard.get_epoch_player(&player2);
+    let _p1_epoch = blendizzard.get_epoch_player(&blendizzard.get_current_epoch(), &player1);
+    let _p2_epoch = blendizzard.get_epoch_player(&blendizzard.get_current_epoch(), &player2);
 
     // Both players make their guesses
-    number_guess_client.make_guess(&game_id, &player1, &5);
-    number_guess_client.make_guess(&game_id, &player2, &7);
+    number_guess_client.make_guess(&session_id, &player1, &5);
+    number_guess_client.make_guess(&session_id, &player2, &7);
 
     // Reveal winner - this also ends the game in Blendizzard
-    let winner = number_guess_client.reveal_winner(&game_id);
+    let winner = number_guess_client.reveal_winner(&session_id);
 
     // Verify FP accounting after game
-    let winner_epoch = blendizzard.get_epoch_player(&winner);
+    let winner_epoch = blendizzard.get_epoch_player(&blendizzard.get_current_epoch(), &winner);
     let loser = if winner == player1 {
         player2.clone()
     } else {
         player1.clone()
     };
-    let _loser_epoch = blendizzard.get_epoch_player(&loser);
+    let _loser_epoch = blendizzard.get_epoch_player(&blendizzard.get_current_epoch(), &loser);
 
     // Winner's wager should be unlocked and contributed to faction
 
@@ -175,18 +175,18 @@ fn test_multiple_number_guess_games() {
     let wager = 100_0000000;
 
     // Start both games - this internally calls Blendizzard
-    let game1 = number_guess_client.start_game(&session1, &player1, &player2, &wager, &wager);
-    let game2 = number_guess_client.start_game(&session2, &player3, &player4, &wager, &wager);
+    number_guess_client.start_game(&session1, &player1, &player2, &wager, &wager);
+    number_guess_client.start_game(&session2, &player3, &player4, &wager, &wager);
 
     // Game 1
-    number_guess_client.make_guess(&game1, &player1, &5);
-    number_guess_client.make_guess(&game1, &player2, &6);
-    number_guess_client.reveal_winner(&game1); // Ends in Blendizzard
+    number_guess_client.make_guess(&session1, &player1, &5);
+    number_guess_client.make_guess(&session1, &player2, &6);
+    number_guess_client.reveal_winner(&session1); // Ends in Blendizzard
 
     // Game 2
-    number_guess_client.make_guess(&game2, &player3, &3);
-    number_guess_client.make_guess(&game2, &player4, &8);
-    number_guess_client.reveal_winner(&game2); // Ends in Blendizzard
+    number_guess_client.make_guess(&session2, &player3, &3);
+    number_guess_client.make_guess(&session2, &player4, &8);
+    number_guess_client.reveal_winner(&session2); // Ends in Blendizzard
 
     // Verify faction standings reflect both games
     let current_epoch_num = blendizzard.get_current_epoch();
@@ -281,10 +281,10 @@ fn test_loser_fp_is_deducted() {
     let wager2 = 50_0000000;
 
     // Start and play game
-    let game_id = number_guess_client.start_game(&session_id, &player1, &player2, &wager1, &wager2);
-    number_guess_client.make_guess(&game_id, &player1, &5);
-    number_guess_client.make_guess(&game_id, &player2, &7);
-    let winner = number_guess_client.reveal_winner(&game_id);
+    number_guess_client.start_game(&session_id, &player1, &player2, &wager1, &wager2);
+    number_guess_client.make_guess(&session_id, &player1, &5);
+    number_guess_client.make_guess(&session_id, &player2, &7);
+    let winner = number_guess_client.reveal_winner(&session_id);
 
     // Get final FP after game
     let loser = if winner == player1 {
@@ -292,7 +292,7 @@ fn test_loser_fp_is_deducted() {
     } else {
         player1.clone()
     };
-    let loser_after = blendizzard.get_epoch_player(&loser);
+    let loser_after = blendizzard.get_epoch_player(&blendizzard.get_current_epoch(), &loser);
 
     // Loser should have lost their wager
 
@@ -322,21 +322,21 @@ fn test_winner_fp_returned_loser_fp_spent() {
     let wager = 100_0000000;
 
     // Start game
-    let game_id = number_guess_client.start_game(&session_id, &player1, &player2, &wager, &wager);
+    number_guess_client.start_game(&session_id, &player1, &player2, &wager, &wager);
 
     // Verify FP is locked during game
-    let _p1_during = blendizzard.get_epoch_player(&player1);
-    let _p2_during = blendizzard.get_epoch_player(&player2);
+    let _p1_during = blendizzard.get_epoch_player(&blendizzard.get_current_epoch(), &player1);
+    let _p2_during = blendizzard.get_epoch_player(&blendizzard.get_current_epoch(), &player2);
 
     // Play and reveal
-    number_guess_client.make_guess(&game_id, &player1, &5);
-    number_guess_client.make_guess(&game_id, &player2, &7);
-    let winner = number_guess_client.reveal_winner(&game_id);
+    number_guess_client.make_guess(&session_id, &player1, &5);
+    number_guess_client.make_guess(&session_id, &player2, &7);
+    let winner = number_guess_client.reveal_winner(&session_id);
 
     // Verify final state
-    let winner_final = blendizzard.get_epoch_player(&winner);
+    let winner_final = blendizzard.get_epoch_player(&blendizzard.get_current_epoch(), &winner);
     let loser = if winner == player1 { player2 } else { player1 };
-    let loser_final = blendizzard.get_epoch_player(&loser);
+    let loser_final = blendizzard.get_epoch_player(&blendizzard.get_current_epoch(), &loser);
 
     // Both should have 0 locked FP after game
 
@@ -375,24 +375,24 @@ fn test_asymmetric_wagers() {
     let session_id = 12u32;
 
     // Start and play game
-    let game_id = number_guess_client.start_game(&session_id, &player1, &player2, &wager1, &wager2);
+    number_guess_client.start_game(&session_id, &player1, &player2, &wager1, &wager2);
 
     // Verify correct amounts are locked
-    let p1_locked = blendizzard.get_epoch_player(&player1);
-    let p2_locked = blendizzard.get_epoch_player(&player2);
+    let _p1_locked = blendizzard.get_epoch_player(&blendizzard.get_current_epoch(), &player1);
+    let _p2_locked = blendizzard.get_epoch_player(&blendizzard.get_current_epoch(), &player2);
 
-    number_guess_client.make_guess(&game_id, &player1, &5);
-    number_guess_client.make_guess(&game_id, &player2, &7);
-    let winner = number_guess_client.reveal_winner(&game_id);
+    number_guess_client.make_guess(&session_id, &player1, &5);
+    number_guess_client.make_guess(&session_id, &player2, &7);
+    let winner = number_guess_client.reveal_winner(&session_id);
 
     // Verify correct wager amounts contributed
-    let winner_final = blendizzard.get_epoch_player(&winner);
+    let winner_final = blendizzard.get_epoch_player(&blendizzard.get_current_epoch(), &winner);
     let (loser, winner_wager, _loser_wager) = if winner == player1 {
         (player2.clone(), wager1, wager2)
     } else {
         (player1.clone(), wager2, wager1)
     };
-    let loser_final = blendizzard.get_epoch_player(&loser);
+    let loser_final = blendizzard.get_epoch_player(&blendizzard.get_current_epoch(), &loser);
     assert_eq!(
         winner_final.total_fp_contributed, winner_wager,
         "Winner contribution should match their wager"
@@ -428,14 +428,13 @@ fn test_player_cannot_guess_twice() {
     blendizzard.select_faction(&player2, &1);
 
     let session_id = 13u32;
-    let game_id =
-        number_guess_client.start_game(&session_id, &player1, &player2, &100_0000000, &100_0000000);
+    number_guess_client.start_game(&session_id, &player1, &player2, &100_0000000, &100_0000000);
 
     // Player1 makes first guess
-    number_guess_client.make_guess(&game_id, &player1, &5);
+    number_guess_client.make_guess(&session_id, &player1, &5);
 
     // Player1 tries to guess again - should panic
-    number_guess_client.make_guess(&game_id, &player1, &7);
+    number_guess_client.make_guess(&session_id, &player1, &7);
 }
 
 #[test]
@@ -455,14 +454,13 @@ fn test_cannot_reveal_before_both_guess() {
     blendizzard.select_faction(&player2, &1);
 
     let session_id = 14u32;
-    let game_id =
-        number_guess_client.start_game(&session_id, &player1, &player2, &100_0000000, &100_0000000);
+    number_guess_client.start_game(&session_id, &player1, &player2, &100_0000000, &100_0000000);
 
     // Only player1 guesses
-    number_guess_client.make_guess(&game_id, &player1, &5);
+    number_guess_client.make_guess(&session_id, &player1, &5);
 
     // Try to reveal before player2 guesses - should panic
-    number_guess_client.reveal_winner(&game_id);
+    number_guess_client.reveal_winner(&session_id);
 }
 
 #[test]
@@ -487,20 +485,19 @@ fn test_tie_game_player1_wins() {
     // So let's manufacture a scenario where both guess the same number
 
     let session_id = 15u32;
-    let game_id =
-        number_guess_client.start_game(&session_id, &player1, &player2, &100_0000000, &100_0000000);
+    number_guess_client.start_game(&session_id, &player1, &player2, &100_0000000, &100_0000000);
 
     // Both players guess the same number (guaranteed tie on distance)
-    number_guess_client.make_guess(&game_id, &player1, &5);
-    number_guess_client.make_guess(&game_id, &player2, &5);
+    number_guess_client.make_guess(&session_id, &player1, &5);
+    number_guess_client.make_guess(&session_id, &player2, &5);
 
-    let winner = number_guess_client.reveal_winner(&game_id);
+    let winner = number_guess_client.reveal_winner(&session_id);
 
     // In a tie, player1 should always win (per contract logic: distance1 <= distance2)
     assert_eq!(winner, player1, "Player1 should win in tie games");
 
     // Verify player1 got their FP contribution recorded
-    let p1_epoch = blendizzard.get_epoch_player(&player1);
+    let p1_epoch = blendizzard.get_epoch_player(&blendizzard.get_current_epoch(), &player1);
     assert_eq!(p1_epoch.total_fp_contributed, 100_0000000);
 }
 
@@ -523,11 +520,11 @@ fn test_abandoned_game_fp_stays_locked() {
     let wager = 100_0000000;
 
     // Start game but never complete it
-    let _game_id = number_guess_client.start_game(&session_id, &player1, &player2, &wager, &wager);
+    number_guess_client.start_game(&session_id, &player1, &player2, &wager, &wager);
 
     // Verify FP is locked
-    let p1_epoch = blendizzard.get_epoch_player(&player1);
-    let p2_epoch = blendizzard.get_epoch_player(&player2);
+    let p1_epoch = blendizzard.get_epoch_player(&blendizzard.get_current_epoch(), &player1);
+    let p2_epoch = blendizzard.get_epoch_player(&blendizzard.get_current_epoch(), &player2);
 
     assert_eq!(
         p1_epoch.total_fp_contributed, 0,
@@ -652,24 +649,24 @@ fn test_full_epoch_cycle_with_rewards() {
 
     // Game 1: player1 vs player2
     let session1 = 20u32;
-    let game1 = number_guess_client.start_game(&session1, &player1, &player2, &wager, &wager);
-    number_guess_client.make_guess(&game1, &player1, &5);
-    number_guess_client.make_guess(&game1, &player2, &7);
-    let winner1 = number_guess_client.reveal_winner(&game1);
+    number_guess_client.start_game(&session1, &player1, &player2, &wager, &wager);
+    number_guess_client.make_guess(&session1, &player1, &5);
+    number_guess_client.make_guess(&session1, &player2, &7);
+    let winner1 = number_guess_client.reveal_winner(&session1);
 
     // Game 2: player3 vs player4
     let session2 = 21u32;
-    let game2 = number_guess_client.start_game(&session2, &player3, &player4, &wager, &wager);
-    number_guess_client.make_guess(&game2, &player3, &3);
-    number_guess_client.make_guess(&game2, &player4, &8);
-    let winner2 = number_guess_client.reveal_winner(&game2);
+    number_guess_client.start_game(&session2, &player3, &player4, &wager, &wager);
+    number_guess_client.make_guess(&session2, &player3, &3);
+    number_guess_client.make_guess(&session2, &player4, &8);
+    let winner2 = number_guess_client.reveal_winner(&session2);
 
     // Game 3: player1 vs player4 (another game for more FP contribution)
     let session3 = 22u32;
-    let game3 = number_guess_client.start_game(&session3, &player1, &player4, &wager, &wager);
-    number_guess_client.make_guess(&game3, &player1, &6);
-    number_guess_client.make_guess(&game3, &player4, &4);
-    let winner3 = number_guess_client.reveal_winner(&game3);
+    number_guess_client.start_game(&session3, &player1, &player4, &wager, &wager);
+    number_guess_client.make_guess(&session3, &player1, &6);
+    number_guess_client.make_guess(&session3, &player4, &4);
+    let winner3 = number_guess_client.reveal_winner(&session3);
 
     // ========================================================================
     // Step 4: Verify faction standings after games
@@ -716,7 +713,7 @@ fn test_full_epoch_cycle_with_rewards() {
 
     let epoch0_final = blendizzard.get_epoch(&0);
     let current_epoch_num_check = blendizzard.get_current_epoch();
-    let epoch1 = blendizzard.get_epoch(&current_epoch_num_check);
+    let _epoch1 = blendizzard.get_epoch(&current_epoch_num_check);
 
     assert!(epoch0_final.is_finalized, "Epoch 0 should be finalized");
 
@@ -759,11 +756,20 @@ fn test_full_epoch_cycle_with_rewards() {
         let mut total_claimed = 0i128;
 
         for (player, _won_game) in players_and_winners.iter() {
-            let player_epoch = blendizzard.get_epoch_player(&player);
-            let player_faction = player_epoch.epoch_faction.unwrap();
+            // Query historical epoch 0 data (we're now in epoch 1)
+            // try_ methods return Result<Result<T, ContractError>, ConversionError>
+            let epoch0_data = match blendizzard.try_get_epoch_player(&0, &player) {
+                Ok(Ok(data)) => data,
+                _ => continue, // Player didn't play in epoch 0 or error, skip
+            };
+
+            let player_faction = match epoch0_data.epoch_faction {
+                Some(faction) => faction,
+                None => continue, // Faction not locked (shouldn't happen), skip
+            };
 
             // If player is on winning faction and contributed FP
-            if player_faction == winning_faction && player_epoch.total_fp_contributed > 0 {
+            if player_faction == winning_faction && epoch0_data.total_fp_contributed > 0 {
                 // They should be able to claim rewards
                 let usdc_before = usdc_token_client.balance(&player);
 
@@ -788,7 +794,7 @@ fn test_full_epoch_cycle_with_rewards() {
                     double_claim_result.is_err(),
                     "Should not be able to claim twice"
                 );
-            } else if player_faction != winning_faction && player_epoch.total_fp_contributed > 0 {
+            } else if player_faction != winning_faction && epoch0_data.total_fp_contributed > 0 {
                 // Losers from other factions with contribution shouldn't get rewards
                 // They either can't claim (error) or get 0
                 // We don't need to verify this explicitly - just note it
@@ -813,10 +819,10 @@ fn test_full_epoch_cycle_with_rewards() {
 
     // Play a game in epoch 1
     let session4 = 23u32;
-    let game4 = number_guess_client.start_game(&session4, &player1, &player2, &wager, &wager);
-    number_guess_client.make_guess(&game4, &player1, &5);
-    number_guess_client.make_guess(&game4, &player2, &6);
-    let _winner4 = number_guess_client.reveal_winner(&game4);
+    number_guess_client.start_game(&session4, &player1, &player2, &wager, &wager);
+    number_guess_client.make_guess(&session4, &player1, &5);
+    number_guess_client.make_guess(&session4, &player2, &6);
+    let _winner4 = number_guess_client.reveal_winner(&session4);
 
     // Verify epoch 1 standings are being tracked
     let current_epoch_num = blendizzard.get_current_epoch();

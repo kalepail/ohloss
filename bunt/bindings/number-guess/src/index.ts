@@ -35,16 +35,15 @@ if (typeof window !== 'undefined') {
 
 
 export interface Game {
-  guess1: Option<u32>;
-  guess2: Option<u32>;
   player1: string;
+  player1_guess: Option<u32>;
   player1_wager: i128;
   player2: string;
+  player2_guess: Option<u32>;
   player2_wager: i128;
-  session_id: u32;
   status: GameStatus;
   winner: Option<string>;
-  winning_number: u32;
+  winning_number: Option<u32>;
 }
 
 export const Errors = {
@@ -59,7 +58,7 @@ export const Errors = {
   9: {message:"NotAdmin"}
 }
 
-export type DataKey = {tag: "Game", values: readonly [u32]} | {tag: "GameCounter", values: void} | {tag: "BlendizzardAddress", values: void} | {tag: "Admin", values: void};
+export type DataKey = {tag: "Game", values: readonly [u32]} | {tag: "BlendizzardAddress", values: void} | {tag: "Admin", values: void};
 
 export type GameStatus = {tag: "Active", values: void} | {tag: "Ended", values: void};
 
@@ -105,12 +104,12 @@ export interface Client {
    * Get game information.
    * 
    * # Arguments
-   * * `game_id` - The ID of the game
+   * * `session_id` - The session ID of the game
    * 
    * # Returns
    * * `Game` - The game state (includes winning number after game ends)
    */
-  get_game: ({game_id}: {game_id: u32}, options?: {
+  get_game: ({session_id}: {session_id: u32}, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -184,11 +183,11 @@ export interface Client {
    * Players can guess a number between 1 and 10.
    * 
    * # Arguments
-   * * `game_id` - The ID of the game
+   * * `session_id` - The session ID of the game
    * * `player` - Address of the player making the guess
    * * `guess` - The guessed number (1-10)
    */
-  make_guess: ({game_id, player, guess}: {game_id: u32, player: string, guess: u32}, options?: {
+  make_guess: ({session_id, player, guess}: {session_id: u32, player: string, guess: u32}, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -219,9 +218,6 @@ export interface Client {
    * * `player2` - Address of second player
    * * `player1_wager` - FP amount player1 is wagering
    * * `player2_wager` - FP amount player2 is wagering
-   * 
-   * # Returns
-   * * `u32` - The game ID
    */
   start_game: ({session_id, player1, player2, player1_wager, player2_wager}: {session_id: u32, player1: string, player2: string, player1_wager: i128, player2_wager: i128}, options?: {
     /**
@@ -238,21 +234,21 @@ export interface Client {
      * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
      */
     simulate?: boolean;
-  }) => Promise<AssembledTransaction<Result<u32>>>
+  }) => Promise<AssembledTransaction<Result<void>>>
 
   /**
    * Construct and simulate a reveal_winner transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    * Reveal the winner of the game and submit outcome to Blendizzard.
    * Can only be called after both players have made their guesses.
-   * This ends the Blendizzard session, unlocks FP, and updates faction standings.
+   * This generates the winning number, determines the winner, and ends the session.
    * 
    * # Arguments
-   * * `game_id` - The ID of the game
+   * * `session_id` - The session ID of the game
    * 
    * # Returns
    * * `Address` - Address of the winning player
    */
-  reveal_winner: ({game_id}: {game_id: u32}, options?: {
+  reveal_winner: ({session_id}: {session_id: u32}, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -340,19 +336,19 @@ export class Client extends ContractClient {
   }
   constructor(public readonly options: ContractClientOptions) {
     super(
-      new ContractSpec([ "AAAAAQAAAAAAAAAAAAAABEdhbWUAAAAKAAAAAAAAAAZndWVzczEAAAAAA+gAAAAEAAAAAAAAAAZndWVzczIAAAAAA+gAAAAEAAAAAAAAAAdwbGF5ZXIxAAAAABMAAAAAAAAADXBsYXllcjFfd2FnZXIAAAAAAAALAAAAAAAAAAdwbGF5ZXIyAAAAABMAAAAAAAAADXBsYXllcjJfd2FnZXIAAAAAAAALAAAAAAAAAApzZXNzaW9uX2lkAAAAAAAEAAAAAAAAAAZzdGF0dXMAAAAAB9AAAAAKR2FtZVN0YXR1cwAAAAAAAAAAAAZ3aW5uZXIAAAAAA+gAAAATAAAAAAAAAA53aW5uaW5nX251bWJlcgAAAAAABA==",
+      new ContractSpec([ "AAAAAQAAAAAAAAAAAAAABEdhbWUAAAAJAAAAAAAAAAdwbGF5ZXIxAAAAABMAAAAAAAAADXBsYXllcjFfZ3Vlc3MAAAAAAAPoAAAABAAAAAAAAAANcGxheWVyMV93YWdlcgAAAAAAAAsAAAAAAAAAB3BsYXllcjIAAAAAEwAAAAAAAAANcGxheWVyMl9ndWVzcwAAAAAAA+gAAAAEAAAAAAAAAA1wbGF5ZXIyX3dhZ2VyAAAAAAAACwAAAAAAAAAGc3RhdHVzAAAAAAfQAAAACkdhbWVTdGF0dXMAAAAAAAAAAAAGd2lubmVyAAAAAAPoAAAAEwAAAAAAAAAOd2lubmluZ19udW1iZXIAAAAAA+gAAAAE",
         "AAAABAAAAAAAAAAAAAAABUVycm9yAAAAAAAACQAAAAAAAAAMR2FtZU5vdEZvdW5kAAAAAQAAAAAAAAASR2FtZUFscmVhZHlTdGFydGVkAAAAAAACAAAAAAAAAAlOb3RQbGF5ZXIAAAAAAAADAAAAAAAAAA5BbHJlYWR5R3Vlc3NlZAAAAAAABAAAAAAAAAAVQm90aFBsYXllcnNOb3RHdWVzc2VkAAAAAAAABQAAAAAAAAAQR2FtZUFscmVhZHlFbmRlZAAAAAYAAAAAAAAADk5vdEluaXRpYWxpemVkAAAAAAAHAAAAAAAAABJBbHJlYWR5SW5pdGlhbGl6ZWQAAAAAAAgAAAAAAAAACE5vdEFkbWluAAAACQ==",
-        "AAAAAgAAAAAAAAAAAAAAB0RhdGFLZXkAAAAABAAAAAEAAAAAAAAABEdhbWUAAAABAAAABAAAAAAAAAAAAAAAC0dhbWVDb3VudGVyAAAAAAAAAAAAAAAAEkJsZW5kaXp6YXJkQWRkcmVzcwAAAAAAAAAAAAAAAAAFQWRtaW4AAAA=",
+        "AAAAAgAAAAAAAAAAAAAAB0RhdGFLZXkAAAAAAwAAAAEAAAAAAAAABEdhbWUAAAABAAAABAAAAAAAAAAAAAAAEkJsZW5kaXp6YXJkQWRkcmVzcwAAAAAAAAAAAAAAAAAFQWRtaW4AAAA=",
         "AAAAAgAAAAAAAAAAAAAACkdhbWVTdGF0dXMAAAAAAAIAAAAAAAAAAAAAAAZBY3RpdmUAAAAAAAAAAAAAAAAABUVuZGVkAAAA",
         "AAAAAQAAAAAAAAAAAAAAC0dhbWVPdXRjb21lAAAAAAUAAAAAAAAAB2dhbWVfaWQAAAAAEwAAAAAAAAAHcGxheWVyMQAAAAATAAAAAAAAAAdwbGF5ZXIyAAAAABMAAAAAAAAACnNlc3Npb25faWQAAAAAAAQAAAAAAAAABndpbm5lcgAAAAAAAQ==",
         "AAAAAAAAAKVVcGRhdGUgdGhlIGNvbnRyYWN0IFdBU00gaGFzaCAodXBncmFkZSBjb250cmFjdCkKCiMgQXJndW1lbnRzCiogYG5ld193YXNtX2hhc2hgIC0gVGhlIGhhc2ggb2YgdGhlIG5ldyBXQVNNIGJpbmFyeQoKIyBFcnJvcnMKKiBgTm90QWRtaW5gIC0gSWYgY2FsbGVyIGlzIG5vdCB0aGUgYWRtaW4AAAAAAAAHdXBncmFkZQAAAAABAAAAAAAAAA1uZXdfd2FzbV9oYXNoAAAAAAAD7gAAACAAAAABAAAD6QAAA+0AAAAAAAAAAw==",
-        "AAAAAAAAAJJHZXQgZ2FtZSBpbmZvcm1hdGlvbi4KCiMgQXJndW1lbnRzCiogYGdhbWVfaWRgIC0gVGhlIElEIG9mIHRoZSBnYW1lCgojIFJldHVybnMKKiBgR2FtZWAgLSBUaGUgZ2FtZSBzdGF0ZSAoaW5jbHVkZXMgd2lubmluZyBudW1iZXIgYWZ0ZXIgZ2FtZSBlbmRzKQAAAAAACGdldF9nYW1lAAAAAQAAAAAAAAAHZ2FtZV9pZAAAAAAEAAAAAQAAA+kAAAfQAAAABEdhbWUAAAAD",
+        "AAAAAAAAAJ1HZXQgZ2FtZSBpbmZvcm1hdGlvbi4KCiMgQXJndW1lbnRzCiogYHNlc3Npb25faWRgIC0gVGhlIHNlc3Npb24gSUQgb2YgdGhlIGdhbWUKCiMgUmV0dXJucwoqIGBHYW1lYCAtIFRoZSBnYW1lIHN0YXRlIChpbmNsdWRlcyB3aW5uaW5nIG51bWJlciBhZnRlciBnYW1lIGVuZHMpAAAAAAAACGdldF9nYW1lAAAAAQAAAAAAAAAKc2Vzc2lvbl9pZAAAAAAABAAAAAEAAAPpAAAH0AAAAARHYW1lAAAAAw==",
         "AAAAAAAAAEhHZXQgdGhlIGN1cnJlbnQgYWRtaW4gYWRkcmVzcwoKIyBSZXR1cm5zCiogYEFkZHJlc3NgIC0gVGhlIGFkbWluIGFkZHJlc3MAAAAJZ2V0X2FkbWluAAAAAAAAAAAAAAEAAAPpAAAAEwAAAAM=",
         "AAAAAAAAAIZTZXQgYSBuZXcgYWRtaW4gYWRkcmVzcwoKIyBBcmd1bWVudHMKKiBgbmV3X2FkbWluYCAtIFRoZSBuZXcgYWRtaW4gYWRkcmVzcwoKIyBFcnJvcnMKKiBgTm90QWRtaW5gIC0gSWYgY2FsbGVyIGlzIG5vdCB0aGUgY3VycmVudCBhZG1pbgAAAAAACXNldF9hZG1pbgAAAAAAAAEAAAAAAAAACW5ld19hZG1pbgAAAAAAABMAAAABAAAD6QAAA+0AAAAAAAAAAw==",
-        "AAAAAAAAANdNYWtlIGEgZ3Vlc3MgZm9yIHRoZSBjdXJyZW50IGdhbWUuClBsYXllcnMgY2FuIGd1ZXNzIGEgbnVtYmVyIGJldHdlZW4gMSBhbmQgMTAuCgojIEFyZ3VtZW50cwoqIGBnYW1lX2lkYCAtIFRoZSBJRCBvZiB0aGUgZ2FtZQoqIGBwbGF5ZXJgIC0gQWRkcmVzcyBvZiB0aGUgcGxheWVyIG1ha2luZyB0aGUgZ3Vlc3MKKiBgZ3Vlc3NgIC0gVGhlIGd1ZXNzZWQgbnVtYmVyICgxLTEwKQAAAAAKbWFrZV9ndWVzcwAAAAAAAwAAAAAAAAAHZ2FtZV9pZAAAAAAEAAAAAAAAAAZwbGF5ZXIAAAAAABMAAAAAAAAABWd1ZXNzAAAAAAAABAAAAAEAAAPpAAAD7QAAAAAAAAAD",
-        "AAAAAAAAAjpTdGFydCBhIG5ldyBnYW1lIGJldHdlZW4gdHdvIHBsYXllcnMgd2l0aCBGUCB3YWdlcnMuClRoaXMgY3JlYXRlcyBhIHNlc3Npb24gaW4gQmxlbmRpenphcmQgYW5kIGxvY2tzIEZQIGJlZm9yZSBzdGFydGluZyB0aGUgZ2FtZS4KCioqQ1JJVElDQUw6KiogVGhpcyBtZXRob2QgcmVxdWlyZXMgYXV0aG9yaXphdGlvbiBmcm9tIFRISVMgY29udHJhY3QgKG5vdCBwbGF5ZXJzKS4KQmxlbmRpenphcmQgd2lsbCBjYWxsIGBnYW1lX2lkLnJlcXVpcmVfYXV0aCgpYCB3aGljaCBjaGVja3MgdGhpcyBjb250cmFjdCdzIGFkZHJlc3MuCgojIEFyZ3VtZW50cwoqIGBzZXNzaW9uX2lkYCAtIFVuaXF1ZSBzZXNzaW9uIGlkZW50aWZpZXIgKHUzMikKKiBgcGxheWVyMWAgLSBBZGRyZXNzIG9mIGZpcnN0IHBsYXllcgoqIGBwbGF5ZXIyYCAtIEFkZHJlc3Mgb2Ygc2Vjb25kIHBsYXllcgoqIGBwbGF5ZXIxX3dhZ2VyYCAtIEZQIGFtb3VudCBwbGF5ZXIxIGlzIHdhZ2VyaW5nCiogYHBsYXllcjJfd2FnZXJgIC0gRlAgYW1vdW50IHBsYXllcjIgaXMgd2FnZXJpbmcKCiMgUmV0dXJucwoqIGB1MzJgIC0gVGhlIGdhbWUgSUQAAAAAAApzdGFydF9nYW1lAAAAAAAFAAAAAAAAAApzZXNzaW9uX2lkAAAAAAAEAAAAAAAAAAdwbGF5ZXIxAAAAABMAAAAAAAAAB3BsYXllcjIAAAAAEwAAAAAAAAANcGxheWVyMV93YWdlcgAAAAAAAAsAAAAAAAAADXBsYXllcjJfd2FnZXIAAAAAAAALAAAAAQAAA+kAAAAEAAAAAw==",
+        "AAAAAAAAAOJNYWtlIGEgZ3Vlc3MgZm9yIHRoZSBjdXJyZW50IGdhbWUuClBsYXllcnMgY2FuIGd1ZXNzIGEgbnVtYmVyIGJldHdlZW4gMSBhbmQgMTAuCgojIEFyZ3VtZW50cwoqIGBzZXNzaW9uX2lkYCAtIFRoZSBzZXNzaW9uIElEIG9mIHRoZSBnYW1lCiogYHBsYXllcmAgLSBBZGRyZXNzIG9mIHRoZSBwbGF5ZXIgbWFraW5nIHRoZSBndWVzcwoqIGBndWVzc2AgLSBUaGUgZ3Vlc3NlZCBudW1iZXIgKDEtMTApAAAAAAAKbWFrZV9ndWVzcwAAAAAAAwAAAAAAAAAKc2Vzc2lvbl9pZAAAAAAABAAAAAAAAAAGcGxheWVyAAAAAAATAAAAAAAAAAVndWVzcwAAAAAAAAQAAAABAAAD6QAAA+0AAAAAAAAAAw==",
+        "AAAAAAAAAhlTdGFydCBhIG5ldyBnYW1lIGJldHdlZW4gdHdvIHBsYXllcnMgd2l0aCBGUCB3YWdlcnMuClRoaXMgY3JlYXRlcyBhIHNlc3Npb24gaW4gQmxlbmRpenphcmQgYW5kIGxvY2tzIEZQIGJlZm9yZSBzdGFydGluZyB0aGUgZ2FtZS4KCioqQ1JJVElDQUw6KiogVGhpcyBtZXRob2QgcmVxdWlyZXMgYXV0aG9yaXphdGlvbiBmcm9tIFRISVMgY29udHJhY3QgKG5vdCBwbGF5ZXJzKS4KQmxlbmRpenphcmQgd2lsbCBjYWxsIGBnYW1lX2lkLnJlcXVpcmVfYXV0aCgpYCB3aGljaCBjaGVja3MgdGhpcyBjb250cmFjdCdzIGFkZHJlc3MuCgojIEFyZ3VtZW50cwoqIGBzZXNzaW9uX2lkYCAtIFVuaXF1ZSBzZXNzaW9uIGlkZW50aWZpZXIgKHUzMikKKiBgcGxheWVyMWAgLSBBZGRyZXNzIG9mIGZpcnN0IHBsYXllcgoqIGBwbGF5ZXIyYCAtIEFkZHJlc3Mgb2Ygc2Vjb25kIHBsYXllcgoqIGBwbGF5ZXIxX3dhZ2VyYCAtIEZQIGFtb3VudCBwbGF5ZXIxIGlzIHdhZ2VyaW5nCiogYHBsYXllcjJfd2FnZXJgIC0gRlAgYW1vdW50IHBsYXllcjIgaXMgd2FnZXJpbmcAAAAAAAAKc3RhcnRfZ2FtZQAAAAAABQAAAAAAAAAKc2Vzc2lvbl9pZAAAAAAABAAAAAAAAAAHcGxheWVyMQAAAAATAAAAAAAAAAdwbGF5ZXIyAAAAABMAAAAAAAAADXBsYXllcjFfd2FnZXIAAAAAAAALAAAAAAAAAA1wbGF5ZXIyX3dhZ2VyAAAAAAAACwAAAAEAAAPpAAAD7QAAAAAAAAAD",
         "AAAAAAAAAK5Jbml0aWFsaXplIHRoZSBjb250cmFjdCB3aXRoIEJsZW5kaXp6YXJkIGFkZHJlc3MgYW5kIGFkbWluCgojIEFyZ3VtZW50cwoqIGBhZG1pbmAgLSBBZG1pbiBhZGRyZXNzIChjYW4gdXBncmFkZSBjb250cmFjdCkKKiBgYmxlbmRpenphcmRgIC0gQWRkcmVzcyBvZiB0aGUgQmxlbmRpenphcmQgY29udHJhY3QAAAAAAA1fX2NvbnN0cnVjdG9yAAAAAAAAAgAAAAAAAAAFYWRtaW4AAAAAAAATAAAAAAAAAAtibGVuZGl6emFyZAAAAAATAAAAAA==",
-        "AAAAAAAAATJSZXZlYWwgdGhlIHdpbm5lciBvZiB0aGUgZ2FtZSBhbmQgc3VibWl0IG91dGNvbWUgdG8gQmxlbmRpenphcmQuCkNhbiBvbmx5IGJlIGNhbGxlZCBhZnRlciBib3RoIHBsYXllcnMgaGF2ZSBtYWRlIHRoZWlyIGd1ZXNzZXMuClRoaXMgZW5kcyB0aGUgQmxlbmRpenphcmQgc2Vzc2lvbiwgdW5sb2NrcyBGUCwgYW5kIHVwZGF0ZXMgZmFjdGlvbiBzdGFuZGluZ3MuCgojIEFyZ3VtZW50cwoqIGBnYW1lX2lkYCAtIFRoZSBJRCBvZiB0aGUgZ2FtZQoKIyBSZXR1cm5zCiogYEFkZHJlc3NgIC0gQWRkcmVzcyBvZiB0aGUgd2lubmluZyBwbGF5ZXIAAAAAAA1yZXZlYWxfd2lubmVyAAAAAAAAAQAAAAAAAAAHZ2FtZV9pZAAAAAAEAAAAAQAAA+kAAAATAAAAAw==",
+        "AAAAAAAAAT9SZXZlYWwgdGhlIHdpbm5lciBvZiB0aGUgZ2FtZSBhbmQgc3VibWl0IG91dGNvbWUgdG8gQmxlbmRpenphcmQuCkNhbiBvbmx5IGJlIGNhbGxlZCBhZnRlciBib3RoIHBsYXllcnMgaGF2ZSBtYWRlIHRoZWlyIGd1ZXNzZXMuClRoaXMgZ2VuZXJhdGVzIHRoZSB3aW5uaW5nIG51bWJlciwgZGV0ZXJtaW5lcyB0aGUgd2lubmVyLCBhbmQgZW5kcyB0aGUgc2Vzc2lvbi4KCiMgQXJndW1lbnRzCiogYHNlc3Npb25faWRgIC0gVGhlIHNlc3Npb24gSUQgb2YgdGhlIGdhbWUKCiMgUmV0dXJucwoqIGBBZGRyZXNzYCAtIEFkZHJlc3Mgb2YgdGhlIHdpbm5pbmcgcGxheWVyAAAAAA1yZXZlYWxfd2lubmVyAAAAAAAAAQAAAAAAAAAKc2Vzc2lvbl9pZAAAAAAABAAAAAEAAAPpAAAAEwAAAAM=",
         "AAAAAAAAAGZHZXQgdGhlIGN1cnJlbnQgQmxlbmRpenphcmQgY29udHJhY3QgYWRkcmVzcwoKIyBSZXR1cm5zCiogYEFkZHJlc3NgIC0gVGhlIEJsZW5kaXp6YXJkIGNvbnRyYWN0IGFkZHJlc3MAAAAAAA9nZXRfYmxlbmRpenphcmQAAAAAAAAAAAEAAAPpAAAAEwAAAAM=",
         "AAAAAAAAAKJTZXQgYSBuZXcgQmxlbmRpenphcmQgY29udHJhY3QgYWRkcmVzcwoKIyBBcmd1bWVudHMKKiBgbmV3X2JsZW5kaXp6YXJkYCAtIFRoZSBuZXcgQmxlbmRpenphcmQgY29udHJhY3QgYWRkcmVzcwoKIyBFcnJvcnMKKiBgTm90QWRtaW5gIC0gSWYgY2FsbGVyIGlzIG5vdCB0aGUgYWRtaW4AAAAAAA9zZXRfYmxlbmRpenphcmQAAAAAAQAAAAAAAAAPbmV3X2JsZW5kaXp6YXJkAAAAABMAAAABAAAD6QAAA+0AAAAAAAAAAw==" ]),
       options
@@ -364,7 +360,7 @@ export class Client extends ContractClient {
         get_admin: this.txFromJSON<Result<string>>,
         set_admin: this.txFromJSON<Result<void>>,
         make_guess: this.txFromJSON<Result<void>>,
-        start_game: this.txFromJSON<Result<u32>>,
+        start_game: this.txFromJSON<Result<void>>,
         reveal_winner: this.txFromJSON<Result<string>>,
         get_blendizzard: this.txFromJSON<Result<string>>,
         set_blendizzard: this.txFromJSON<Result<void>>

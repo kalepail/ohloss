@@ -326,7 +326,7 @@ fn test_faction_switch_applies_next_epoch() {
         &50_0000000,
     );
 
-    let epoch0_player = blendizzard.get_epoch_player(&player);
+    let epoch0_player = blendizzard.get_epoch_player(&blendizzard.get_current_epoch(), &player);
     assert_eq!(
         epoch0_player.epoch_faction,
         Some(0),
@@ -337,7 +337,7 @@ fn test_faction_switch_applies_next_epoch() {
     blendizzard.select_faction(&player, &1);
 
     // Epoch 0 faction should still be WholeNoodle (locked)
-    let epoch0_player_after = blendizzard.get_epoch_player(&player);
+    let epoch0_player_after = blendizzard.get_epoch_player(&blendizzard.get_current_epoch(), &player);
     assert_eq!(
         epoch0_player_after.epoch_faction,
         Some(0),
@@ -531,7 +531,7 @@ fn test_get_epoch_player_returns_defaults_before_first_game() {
 
     // NEW BEHAVIOR: Epoch data should now return computed FP even before first game
     // This allows UIs to display FP without requiring a game interaction first
-    let epoch_data = blendizzard.get_epoch_player(&player);
+    let epoch_data = blendizzard.get_epoch_player(&blendizzard.get_current_epoch(), &player);
 
     // Should have calculated FP based on vault balance (1000 USDC)
     assert!(
@@ -561,7 +561,8 @@ fn test_get_epoch_player_errors_without_faction_selection() {
     mock_vault.set_user_balance(&player, &1000_0000000);
 
     // Should error with FactionNotSelected (not PlayerNotFound)
-    let result = blendizzard.try_get_epoch_player(&player);
+    let current_epoch = blendizzard.get_current_epoch();
+    let result = blendizzard.try_get_epoch_player(&current_epoch, &player);
     assert!(result.is_err(), "Should error when faction not selected");
     // Note: Error code #16 is FactionNotSelected
 }
@@ -579,7 +580,7 @@ fn test_get_epoch_for_current_and_nonexistent() {
     assert!(!current_epoch_info.is_finalized);
 
     // Get specific epoch (0) - should return same as current
-    let epoch0 = blendizzard.get_epoch(&0);
+    let _epoch0 = blendizzard.get_epoch(&0);
 
     // Try to get nonexistent epoch (999)
     let result = blendizzard.try_get_epoch(&999);

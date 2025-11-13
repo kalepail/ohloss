@@ -261,6 +261,7 @@ pub(crate) fn end_game(env: &Env, proof: &Bytes, outcome: &GameOutcome) -> Resul
         storage::get_epoch_player(env, current_epoch, winner).ok_or(Error::PlayerNotFound)?;
 
     // Only winner's wager contributes to faction standings
+    // Note: Wager is already in FP units with multipliers applied
     winner_epoch.total_fp_contributed = winner_epoch
         .total_fp_contributed
         .checked_add(winner_wager)
@@ -322,16 +323,20 @@ fn initialize_player_epoch(env: &Env, player: &Address, current_epoch: u32) -> R
     // STEP 3: Initialize time_multiplier_start if first-time player
     if player_data.time_multiplier_start == 0 && current_balance > 0 {
         player_data.time_multiplier_start = env.ledger().timestamp();
+        storage::set_player(env, player, &player_data); // Save before reset check
     }
 
     // STEP 4: Check for cross-epoch withdrawal reset (>50%)
+    // This may update time_multiplier_start in storage
     let _reset = crate::vault::check_cross_epoch_withdrawal_reset(env, player, current_balance)?;
 
     // STEP 5: Calculate FP based on current balance and multipliers
     // This calls initialize_epoch_fp which will use the balance we pass
     initialize_epoch_fp(env, player, current_epoch)?;
 
-    // STEP 6: Update last_epoch_balance for next epoch comparison
+    // STEP 6: Reload player data after potential reset, then update last_epoch_balance
+    // CRITICAL: Must reload to get the updated time_multiplier_start from step 4
+    player_data = storage::get_player(env, player).ok_or(Error::PlayerNotFound)?;
     player_data.last_epoch_balance = current_balance;
     storage::set_player(env, player, &player_data);
 

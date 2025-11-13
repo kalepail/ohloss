@@ -1,9 +1,15 @@
 mod blend_integration_tests;
 pub(crate) mod blend_utils;
+mod cross_epoch_tests;
 mod emissions_tests;
+mod epoch_edge_cases_tests;
 pub(crate) mod fee_vault_utils;
+mod fp_edge_cases_tests;
+mod game_expiration_tests;
 mod game_mechanics;
+mod math_rounding_tests;
 mod number_guess_integration;
+mod reward_edge_cases_tests;
 mod reward_and_pause_tests;
 mod smoke;
 pub(crate) mod soroswap_utils;

@@ -101,8 +101,8 @@ fn test_start_game_initializes_fp_from_vault() {
     );
 
     // Verify players have epoch data with FP initialized
-    let p1_epoch = blendizzard.get_epoch_player(&player1);
-    let p2_epoch = blendizzard.get_epoch_player(&player2);
+    let p1_epoch = blendizzard.get_epoch_player(&blendizzard.get_current_epoch(), &player1);
+    let p2_epoch = blendizzard.get_epoch_player(&blendizzard.get_current_epoch(), &player2);
 
     // FP should be calculated from vault balance with multipliers
     // Base amounts: p1=1000, p2=500
@@ -142,7 +142,7 @@ fn test_end_game_spends_fp_and_updates_faction_standings() {
     );
 
     // Get initial FP
-    let p1_initial = blendizzard.get_epoch_player(&player1);
+    let p1_initial = blendizzard.get_epoch_player(&blendizzard.get_current_epoch(), &player1);
 
     // End game (player1 wins)
     let proof = soroban_sdk::Bytes::new(&env);
@@ -156,8 +156,8 @@ fn test_end_game_spends_fp_and_updates_faction_standings() {
     blendizzard.end_game(&proof, &outcome);
 
     // Verify FP spending (both players lose their wagers)
-    let p1_final = blendizzard.get_epoch_player(&player1);
-    let _p2_final = blendizzard.get_epoch_player(&player2);
+    let p1_final = blendizzard.get_epoch_player(&blendizzard.get_current_epoch(), &player1);
+    let _p2_final = blendizzard.get_epoch_player(&blendizzard.get_current_epoch(), &player2);
 
     // Winner's available_fp should stay the same (they don't get FP back)
     assert_eq!(
@@ -184,7 +184,7 @@ fn test_faction_locks_on_first_game() {
     blendizzard.select_faction(&player, &0);
 
     // Faction should not be locked yet (check via get_epoch_player)
-    let epoch_player_before = blendizzard.get_epoch_player(&player);
+    let epoch_player_before = blendizzard.get_epoch_player(&blendizzard.get_current_epoch(), &player);
     assert_eq!(
         epoch_player_before.epoch_faction, None,
         "Faction should not be locked before first game"
@@ -206,7 +206,7 @@ fn test_faction_locks_on_first_game() {
     );
 
     // Faction should now be locked (check via get_epoch_player)
-    let epoch_player_after = blendizzard.get_epoch_player(&player);
+    let epoch_player_after = blendizzard.get_epoch_player(&blendizzard.get_current_epoch(), &player);
     assert_eq!(
         epoch_player_after.epoch_faction,
         Some(0),
@@ -217,7 +217,7 @@ fn test_faction_locks_on_first_game() {
     blendizzard.select_faction(&player, &1); // Try to switch to PointyStick
 
     // Epoch faction should remain locked
-    let epoch_player_after = blendizzard.get_epoch_player(&player);
+    let epoch_player_after = blendizzard.get_epoch_player(&blendizzard.get_current_epoch(), &player);
     assert_eq!(
         epoch_player_after.epoch_faction,
         Some(0),
@@ -271,7 +271,7 @@ fn test_session_stores_epoch_id() {
     blendizzard.end_game(&proof, &outcome);
 
     // Verify game completed
-    let p1_epoch = blendizzard.get_epoch_player(&player1);
+    let p1_epoch = blendizzard.get_epoch_player(&blendizzard.get_current_epoch(), &player1);
 
     assert_eq!(
         p1_epoch.total_fp_contributed, wager,
@@ -312,8 +312,8 @@ fn test_fp_calculation_with_amount_multiplier() {
         &10_0000000,
     );
 
-    let p1_epoch = blendizzard.get_epoch_player(&player1);
-    let p2_epoch = blendizzard.get_epoch_player(&player2);
+    let p1_epoch = blendizzard.get_epoch_player(&blendizzard.get_current_epoch(), &player1);
+    let p2_epoch = blendizzard.get_epoch_player(&blendizzard.get_current_epoch(), &player2);
 
     // Total FP = available (locked_fp removed)
     let p1_total_fp = p1_epoch.available_fp;
@@ -374,7 +374,7 @@ fn test_fp_calculation_with_time_multiplier() {
     );
 
     // Get player1's FP (calculated with time_multiplier at T=0, so ~1.0x)
-    let p1_epoch = blendizzard.get_epoch_player(&player1);
+    let p1_epoch = blendizzard.get_epoch_player(&blendizzard.get_current_epoch(), &player1);
     let p1_fp = p1_epoch.available_fp;
 
     // Jump 30 days forward
@@ -407,7 +407,7 @@ fn test_fp_calculation_with_time_multiplier() {
         &50_0000000,
     );
 
-    let p1_epoch_again = blendizzard.get_epoch_player(&player1);
+    let p1_epoch_again = blendizzard.get_epoch_player(&blendizzard.get_current_epoch(), &player1);
 
     // FP calculation is locked once per epoch - starting another game just spends more FP
     // available_fp decreases with each game (no locked_fp tracking anymore)
