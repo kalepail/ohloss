@@ -86,14 +86,13 @@ pub enum GameStatus {
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Game {
-    pub session_id: u32,
     pub player1: Address,
     pub player2: Address,
     pub player1_wager: i128,
     pub player2_wager: i128,
-    pub guess1: Option<u32>,
-    pub guess2: Option<u32>,
-    pub winning_number: u32,
+    pub player1_guess: Option<u32>,
+    pub player2_guess: Option<u32>,
+    pub winning_number: Option<u32>,
     pub status: GameStatus,
     pub winner: Option<Address>,
 }
@@ -102,7 +101,6 @@ pub struct Game {
 #[derive(Clone)]
 pub enum DataKey {
     Game(u32),
-    GameCounter,
     BlendizzardAddress,
     Admin,
 }
@@ -156,9 +154,6 @@ impl NumberGuessContract {
     /// * `player2` - Address of second player
     /// * `player1_wager` - FP amount player1 is wagering
     /// * `player2_wager` - FP amount player2 is wagering
-    ///
-    /// # Returns
-    /// * `u32` - The game ID
     pub fn start_game(
         env: Env,
         session_id: u32,
@@ -166,7 +161,7 @@ impl NumberGuessContract {
         player2: Address,
         player1_wager: i128,
         player2_wager: i128,
-    ) -> Result<u32, Error> {
+    ) -> Result<(), Error> {
         // Require authentication from both players (they consent to wagering FP)
         player1.require_auth();
         player2.require_auth();
@@ -181,12 +176,6 @@ impl NumberGuessContract {
         // Create Blendizzard client
         let blendizzard = BlendizzardClient::new(&env, &blendizzard_addr);
 
-        // Get next game ID
-        let game_id = Self::get_next_game_id(&env);
-
-        // Generate random number between 1 and 10 using PRNG
-        let winning_number = env.prng().gen_range::<u64>(1..=10) as u32;
-
         // Call Blendizzard to start the session and lock FP
         // This requires THIS contract's authorization (env.current_contract_address())
         blendizzard.start_game(
@@ -198,22 +187,21 @@ impl NumberGuessContract {
             &player2_wager,
         );
 
-        // Create game
+        // Create game (winning_number not set yet - will be generated in reveal_winner)
         let game = Game {
-            session_id,
             player1: player1.clone(),
             player2: player2.clone(),
             player1_wager,
             player2_wager,
-            guess1: None,
-            guess2: None,
-            winning_number,
+            player1_guess: None,
+            player2_guess: None,
+            winning_number: None,
             status: GameStatus::Active,
             winner: None,
         };
 
         // Store game in temporary storage with 30-day TTL
-        let game_key = DataKey::Game(game_id);
+        let game_key = DataKey::Game(session_id);
         env.storage().temporary().set(&game_key, &game);
 
         // Set TTL to ensure game is retained for at least 30 days
@@ -223,17 +211,17 @@ impl NumberGuessContract {
 
         // Event emitted by Blendizzard contract (GameStarted)
 
-        Ok(game_id)
+        Ok(())
     }
 
     /// Make a guess for the current game.
     /// Players can guess a number between 1 and 10.
     ///
     /// # Arguments
-    /// * `game_id` - The ID of the game
+    /// * `session_id` - The session ID of the game
     /// * `player` - Address of the player making the guess
     /// * `guess` - The guessed number (1-10)
-    pub fn make_guess(env: Env, game_id: u32, player: Address, guess: u32) -> Result<(), Error> {
+    pub fn make_guess(env: Env, session_id: u32, player: Address, guess: u32) -> Result<(), Error> {
         player.require_auth();
 
         // Validate guess is in range
@@ -242,7 +230,7 @@ impl NumberGuessContract {
         }
 
         // Get game from temporary storage
-        let key = DataKey::Game(game_id);
+        let key = DataKey::Game(session_id);
         let mut game: Game = env
             .storage()
             .temporary()
@@ -256,15 +244,15 @@ impl NumberGuessContract {
 
         // Update guess for the appropriate player
         if player == game.player1 {
-            if game.guess1.is_some() {
+            if game.player1_guess.is_some() {
                 return Err(Error::AlreadyGuessed);
             }
-            game.guess1 = Some(guess);
+            game.player1_guess = Some(guess);
         } else if player == game.player2 {
-            if game.guess2.is_some() {
+            if game.player2_guess.is_some() {
                 return Err(Error::AlreadyGuessed);
             }
-            game.guess2 = Some(guess);
+            game.player2_guess = Some(guess);
         } else {
             return Err(Error::NotPlayer);
         }
@@ -279,16 +267,16 @@ impl NumberGuessContract {
 
     /// Reveal the winner of the game and submit outcome to Blendizzard.
     /// Can only be called after both players have made their guesses.
-    /// This ends the Blendizzard session, unlocks FP, and updates faction standings.
+    /// This generates the winning number, determines the winner, and ends the session.
     ///
     /// # Arguments
-    /// * `game_id` - The ID of the game
+    /// * `session_id` - The session ID of the game
     ///
     /// # Returns
     /// * `Address` - Address of the winning player
-    pub fn reveal_winner(env: Env, game_id: u32) -> Result<Address, Error> {
+    pub fn reveal_winner(env: Env, session_id: u32) -> Result<Address, Error> {
         // Get game from temporary storage
-        let key = DataKey::Game(game_id);
+        let key = DataKey::Game(session_id);
         let mut game: Game = env
             .storage()
             .temporary()
@@ -301,20 +289,25 @@ impl NumberGuessContract {
         }
 
         // Check both players have guessed
-        let guess1 = game.guess1.ok_or(Error::BothPlayersNotGuessed)?;
-        let guess2 = game.guess2.ok_or(Error::BothPlayersNotGuessed)?;
+        let guess1 = game.player1_guess.ok_or(Error::BothPlayersNotGuessed)?;
+        let guess2 = game.player2_guess.ok_or(Error::BothPlayersNotGuessed)?;
+
+        // Generate random winning number between 1 and 10 using PRNG
+        // This is done AFTER both players have committed their guesses
+        let winning_number = env.prng().gen_range::<u64>(1..=10) as u32;
+        game.winning_number = Some(winning_number);
 
         // Calculate distances
-        let distance1 = if guess1 > game.winning_number {
-            guess1 - game.winning_number
+        let distance1 = if guess1 > winning_number {
+            guess1 - winning_number
         } else {
-            game.winning_number - guess1
+            winning_number - guess1
         };
 
-        let distance2 = if guess2 > game.winning_number {
-            guess2 - game.winning_number
+        let distance2 = if guess2 > winning_number {
+            guess2 - winning_number
         } else {
-            game.winning_number - guess2
+            winning_number - guess2
         };
 
         // Determine winner (if equal distance, player1 wins)
@@ -342,7 +335,7 @@ impl NumberGuessContract {
         // Create game outcome for Blendizzard
         let outcome = GameOutcome {
             game_id: env.current_contract_address(),
-            session_id: game.session_id,
+            session_id,
             player1: game.player1.clone(),
             player2: game.player2.clone(),
             winner: winner == game.player1, // true if player1 won
@@ -362,12 +355,12 @@ impl NumberGuessContract {
     /// Get game information.
     ///
     /// # Arguments
-    /// * `game_id` - The ID of the game
+    /// * `session_id` - The session ID of the game
     ///
     /// # Returns
     /// * `Game` - The game state (includes winning number after game ends)
-    pub fn get_game(env: Env, game_id: u32) -> Result<Game, Error> {
-        let key = DataKey::Game(game_id);
+    pub fn get_game(env: Env, session_id: u32) -> Result<Game, Error> {
+        let key = DataKey::Game(session_id);
         env.storage()
             .temporary()
             .get(&key)
@@ -460,18 +453,6 @@ impl NumberGuessContract {
         env.deployer().update_current_contract_wasm(new_wasm_hash);
 
         Ok(())
-    }
-
-    // ========================================================================
-    // Internal Helpers
-    // ========================================================================
-
-    fn get_next_game_id(env: &Env) -> u32 {
-        let key = DataKey::GameCounter;
-        let counter: u32 = env.storage().instance().get(&key).unwrap_or(0);
-        let next_id = counter.checked_add(1).expect("Game ID overflow");
-        env.storage().instance().set(&key, &next_id);
-        next_id
     }
 }
 

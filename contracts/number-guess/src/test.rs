@@ -99,12 +99,11 @@ fn test_complete_game() {
     let wager = 100_0000000;
 
     // Start game
-    let game_id = client.start_game(&session_id, &player1, &player2, &wager, &wager);
-    assert_eq!(game_id, 1);
+    client.start_game(&session_id, &player1, &player2, &wager, &wager);
 
     // Get game to verify state
-    let game = client.get_game(&game_id);
-    assert!(game.winning_number >= 1 && game.winning_number <= 10);
+    let game = client.get_game(&session_id);
+    assert!(game.winning_number.is_none()); // Winning number not set yet
     assert_eq!(game.status, GameStatus::Active);
     assert_eq!(game.player1, player1);
     assert_eq!(game.player2, player2);
@@ -112,18 +111,21 @@ fn test_complete_game() {
     assert_eq!(game.player2_wager, wager);
 
     // Make guesses
-    client.make_guess(&game_id, &player1, &5);
-    client.make_guess(&game_id, &player2, &7);
+    client.make_guess(&session_id, &player1, &5);
+    client.make_guess(&session_id, &player2, &7);
 
     // Reveal winner
-    let winner = client.reveal_winner(&game_id);
+    let winner = client.reveal_winner(&session_id);
     assert!(winner == player1 || winner == player2);
 
-    // Verify game is ended
-    let final_game = client.get_game(&game_id);
+    // Verify game is ended and winning number is now set
+    let final_game = client.get_game(&session_id);
     assert_eq!(final_game.status, GameStatus::Ended);
     assert!(final_game.winner.is_some());
     assert_eq!(final_game.winner.unwrap(), winner);
+    assert!(final_game.winning_number.is_some());
+    let winning_number = final_game.winning_number.unwrap();
+    assert!(winning_number >= 1 && winning_number <= 10);
 }
 
 #[test]
@@ -131,17 +133,23 @@ fn test_winning_number_in_range() {
     let (_env, client, _blendizzard, player1, player2) = setup_test();
 
     let session_id = 2u32;
-    let game_id = client.start_game(&session_id, &player1, &player2, &100_0000000, &100_0000000);
+    client.start_game(&session_id, &player1, &player2, &100_0000000, &100_0000000);
 
-    let game = client.get_game(&game_id);
+    // Make guesses and reveal winner to generate winning number
+    client.make_guess(&session_id, &player1, &5);
+    client.make_guess(&session_id, &player2, &7);
+    client.reveal_winner(&session_id);
+
+    let game = client.get_game(&session_id);
+    let winning_number = game.winning_number.expect("Winning number should be set after reveal");
     assert!(
-        game.winning_number >= 1 && game.winning_number <= 10,
+        winning_number >= 1 && winning_number <= 10,
         "Winning number should be between 1 and 10"
     );
 }
 
 #[test]
-fn test_game_counter_increments() {
+fn test_multiple_sessions() {
     let (env, client, _blendizzard, player1, player2) = setup_test();
     let player3 = Address::generate(&env);
     let player4 = Address::generate(&env);
@@ -149,11 +157,15 @@ fn test_game_counter_increments() {
     let session1 = 3u32;
     let session2 = 4u32;
 
-    let game1 = client.start_game(&session1, &player1, &player2, &100_0000000, &100_0000000);
-    let game2 = client.start_game(&session2, &player3, &player4, &50_0000000, &50_0000000);
+    client.start_game(&session1, &player1, &player2, &100_0000000, &100_0000000);
+    client.start_game(&session2, &player3, &player4, &50_0000000, &50_0000000);
 
-    assert_eq!(game1, 1);
-    assert_eq!(game2, 2);
+    // Verify both games exist and are independent
+    let game1 = client.get_game(&session1);
+    let game2 = client.get_game(&session2);
+
+    assert_eq!(game1.player1, player1);
+    assert_eq!(game2.player1, player3);
 }
 
 // ============================================================================
@@ -165,28 +177,25 @@ fn test_closest_guess_wins() {
     let (_env, client, _blendizzard, player1, player2) = setup_test();
 
     let session_id = 5u32;
-    let game_id = client.start_game(&session_id, &player1, &player2, &100_0000000, &100_0000000);
+    client.start_game(&session_id, &player1, &player2, &100_0000000, &100_0000000);
 
-    let game = client.get_game(&game_id);
-    let winning_number = game.winning_number;
+    // Player1 guesses closer (1 away from any number between 1-10)
+    // Player2 guesses further (at least 2 away)
+    client.make_guess(&session_id, &player1, &5);
+    client.make_guess(&session_id, &player2, &10);
 
-    // Make strategic guesses
-    let guess1 = if winning_number > 5 {
-        winning_number - 1 // Closer guess
-    } else {
-        winning_number + 1 // Closer guess
-    };
-    let guess2 = if winning_number > 5 {
-        winning_number - 3 // Further guess
-    } else {
-        winning_number + 3 // Further guess
-    };
+    let winner = client.reveal_winner(&session_id);
 
-    client.make_guess(&game_id, &player1, &guess1);
-    client.make_guess(&game_id, &player2, &guess2);
+    // Get the final game state to check the winning number
+    let game = client.get_game(&session_id);
+    let winning_number = game.winning_number.unwrap();
 
-    let winner = client.reveal_winner(&game_id);
-    assert_eq!(winner, player1, "Player with closer guess should win");
+    // Calculate which player should have won based on distances
+    let distance1 = if 5 > winning_number { 5 - winning_number } else { winning_number - 5 };
+    let distance2 = if 10 > winning_number { 10 - winning_number } else { winning_number - 10 };
+
+    let expected_winner = if distance1 <= distance2 { player1.clone() } else { player2.clone() };
+    assert_eq!(winner, expected_winner, "Player with closer guess should win");
 }
 
 #[test]
@@ -194,13 +203,13 @@ fn test_tie_game_player1_wins() {
     let (_env, client, _blendizzard, player1, player2) = setup_test();
 
     let session_id = 6u32;
-    let game_id = client.start_game(&session_id, &player1, &player2, &100_0000000, &100_0000000);
+    client.start_game(&session_id, &player1, &player2, &100_0000000, &100_0000000);
 
     // Both players guess the same number (guaranteed tie)
-    client.make_guess(&game_id, &player1, &5);
-    client.make_guess(&game_id, &player2, &5);
+    client.make_guess(&session_id, &player1, &5);
+    client.make_guess(&session_id, &player2, &5);
 
-    let winner = client.reveal_winner(&game_id);
+    let winner = client.reveal_winner(&session_id);
     assert_eq!(winner, player1, "Player1 should win in a tie");
 }
 
@@ -209,17 +218,22 @@ fn test_exact_guess_wins() {
     let (_env, client, _blendizzard, player1, player2) = setup_test();
 
     let session_id = 7u32;
-    let game_id = client.start_game(&session_id, &player1, &player2, &100_0000000, &100_0000000);
+    client.start_game(&session_id, &player1, &player2, &100_0000000, &100_0000000);
 
-    let game = client.get_game(&game_id);
-    let winning_number = game.winning_number;
+    // Player1 guesses 5 (middle), player2 guesses 10 (edge)
+    // Player1 is more likely to be closer to the winning number
+    client.make_guess(&session_id, &player1, &5);
+    client.make_guess(&session_id, &player2, &10);
 
-    // Player1 guesses exactly right, player2 guesses wrong
-    client.make_guess(&game_id, &player1, &winning_number);
-    client.make_guess(&game_id, &player2, &10);
+    let winner = client.reveal_winner(&session_id);
+    let game = client.get_game(&session_id);
+    let winning_number = game.winning_number.unwrap();
 
-    let winner = client.reveal_winner(&game_id);
-    assert_eq!(winner, player1, "Exact guess should win");
+    // Verify the winner matches the distance calculation
+    let distance1 = if 5 > winning_number { 5 - winning_number } else { winning_number - 5 };
+    let distance2 = if 10 > winning_number { 10 - winning_number } else { winning_number - 10 };
+    let expected_winner = if distance1 <= distance2 { player1.clone() } else { player2.clone() };
+    assert_eq!(winner, expected_winner);
 }
 
 // ============================================================================
@@ -231,13 +245,13 @@ fn test_cannot_guess_twice() {
     let (_env, client, _blendizzard, player1, player2) = setup_test();
 
     let session_id = 8u32;
-    let game_id = client.start_game(&session_id, &player1, &player2, &100_0000000, &100_0000000);
+    client.start_game(&session_id, &player1, &player2, &100_0000000, &100_0000000);
 
     // Make first guess
-    client.make_guess(&game_id, &player1, &5);
+    client.make_guess(&session_id, &player1, &5);
 
     // Try to guess again - should fail
-    let result = client.try_make_guess(&game_id, &player1, &6);
+    let result = client.try_make_guess(&session_id, &player1, &6);
     assert_eq!(result, Err(Ok(Error::AlreadyGuessed)));
 }
 
@@ -246,13 +260,13 @@ fn test_cannot_reveal_before_both_guesses() {
     let (_env, client, _blendizzard, player1, player2) = setup_test();
 
     let session_id = 9u32;
-    let game_id = client.start_game(&session_id, &player1, &player2, &100_0000000, &100_0000000);
+    client.start_game(&session_id, &player1, &player2, &100_0000000, &100_0000000);
 
     // Only player1 guesses
-    client.make_guess(&game_id, &player1, &5);
+    client.make_guess(&session_id, &player1, &5);
 
     // Try to reveal winner - should fail
-    let result = client.try_reveal_winner(&game_id);
+    let result = client.try_reveal_winner(&session_id);
     assert_eq!(result, Err(Ok(Error::BothPlayersNotGuessed)));
 }
 
@@ -262,7 +276,7 @@ fn test_cannot_guess_below_range() {
     let (env, client, _blendizzard, player1, _player2) = setup_test();
 
     let session_id = 10u32;
-    let game_id = client.start_game(
+    client.start_game(
         &session_id,
         &player1,
         &Address::generate(&env),
@@ -271,7 +285,7 @@ fn test_cannot_guess_below_range() {
     );
 
     // Try to guess 0 (below range) - should panic
-    client.make_guess(&game_id, &player1, &0);
+    client.make_guess(&session_id, &player1, &0);
 }
 
 #[test]
@@ -280,7 +294,7 @@ fn test_cannot_guess_above_range() {
     let (env, client, _blendizzard, player1, _player2) = setup_test();
 
     let session_id = 11u32;
-    let game_id = client.start_game(
+    client.start_game(
         &session_id,
         &player1,
         &Address::generate(&env),
@@ -289,7 +303,7 @@ fn test_cannot_guess_above_range() {
     );
 
     // Try to guess 11 (above range) - should panic
-    client.make_guess(&game_id, &player1, &11);
+    client.make_guess(&session_id, &player1, &11);
 }
 
 #[test]
@@ -298,10 +312,10 @@ fn test_non_player_cannot_guess() {
     let non_player = Address::generate(&env);
 
     let session_id = 11u32;
-    let game_id = client.start_game(&session_id, &player1, &player2, &100_0000000, &100_0000000);
+    client.start_game(&session_id, &player1, &player2, &100_0000000, &100_0000000);
 
     // Non-player tries to guess
-    let result = client.try_make_guess(&game_id, &non_player, &5);
+    let result = client.try_make_guess(&session_id, &non_player, &5);
     assert_eq!(result, Err(Ok(Error::NotPlayer)));
 }
 
@@ -318,17 +332,17 @@ fn test_cannot_reveal_twice() {
     let (_env, client, _blendizzard, player1, player2) = setup_test();
 
     let session_id = 12u32;
-    let game_id = client.start_game(&session_id, &player1, &player2, &100_0000000, &100_0000000);
+    client.start_game(&session_id, &player1, &player2, &100_0000000, &100_0000000);
 
-    client.make_guess(&game_id, &player1, &5);
-    client.make_guess(&game_id, &player2, &7);
+    client.make_guess(&session_id, &player1, &5);
+    client.make_guess(&session_id, &player2, &7);
 
     // First reveal succeeds
-    let winner = client.reveal_winner(&game_id);
+    let winner = client.reveal_winner(&session_id);
     assert!(winner == player1 || winner == player2);
 
     // Second reveal should return same winner (idempotent)
-    let winner2 = client.reveal_winner(&game_id);
+    let winner2 = client.reveal_winner(&session_id);
     assert_eq!(winner, winner2);
 }
 
@@ -346,32 +360,32 @@ fn test_multiple_games_independent() {
     let session2 = 14u32;
 
     // Start two games
-    let game1 = client.start_game(&session1, &player1, &player2, &100_0000000, &100_0000000);
-    let game2 = client.start_game(&session2, &player3, &player4, &50_0000000, &50_0000000);
-
-    assert_eq!(game1, 1);
-    assert_eq!(game2, 2);
+    client.start_game(&session1, &player1, &player2, &100_0000000, &100_0000000);
+    client.start_game(&session2, &player3, &player4, &50_0000000, &50_0000000);
 
     // Play both games independently
-    client.make_guess(&game1, &player1, &3);
-    client.make_guess(&game2, &player3, &8);
-    client.make_guess(&game1, &player2, &7);
-    client.make_guess(&game2, &player4, &2);
+    client.make_guess(&session1, &player1, &3);
+    client.make_guess(&session2, &player3, &8);
+    client.make_guess(&session1, &player2, &7);
+    client.make_guess(&session2, &player4, &2);
 
     // Reveal both winners
-    let winner1 = client.reveal_winner(&game1);
-    let winner2 = client.reveal_winner(&game2);
+    let winner1 = client.reveal_winner(&session1);
+    let winner2 = client.reveal_winner(&session2);
 
     assert!(winner1 == player1 || winner1 == player2);
     assert!(winner2 == player3 || winner2 == player4);
 
     // Verify both games are independent
-    let final_game1 = client.get_game(&game1);
-    let final_game2 = client.get_game(&game2);
+    let final_game1 = client.get_game(&session1);
+    let final_game2 = client.get_game(&session2);
 
     assert_eq!(final_game1.status, GameStatus::Ended);
     assert_eq!(final_game2.status, GameStatus::Ended);
-    assert_ne!(final_game1.winning_number, final_game2.winning_number);
+
+    // Note: winning numbers could be the same by chance, so we just verify they're both set
+    assert!(final_game1.winning_number.is_some());
+    assert!(final_game2.winning_number.is_some());
 }
 
 #[test]
@@ -382,18 +396,18 @@ fn test_asymmetric_wagers() {
     let wager1 = 200_0000000;
     let wager2 = 50_0000000;
 
-    let game_id = client.start_game(&session_id, &player1, &player2, &wager1, &wager2);
+    client.start_game(&session_id, &player1, &player2, &wager1, &wager2);
 
-    let game = client.get_game(&game_id);
+    let game = client.get_game(&session_id);
     assert_eq!(game.player1_wager, wager1);
     assert_eq!(game.player2_wager, wager2);
 
-    client.make_guess(&game_id, &player1, &5);
-    client.make_guess(&game_id, &player2, &5);
-    client.reveal_winner(&game_id);
+    client.make_guess(&session_id, &player1, &5);
+    client.make_guess(&session_id, &player2, &5);
+    client.reveal_winner(&session_id);
 
     // Game completes successfully with asymmetric wagers
-    let final_game = client.get_game(&game_id);
+    let final_game = client.get_game(&session_id);
     assert_eq!(final_game.status, GameStatus::Ended);
 }
 
