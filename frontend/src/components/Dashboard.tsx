@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { blendizzardService } from '@/services/blendizzardService';
 import { feeVaultService } from '@/services/feeVaultService';
 import { devWalletService } from '@/services/devWalletService';
@@ -32,7 +32,6 @@ export function Dashboard({ playerNumber, onLogout }: DashboardProps) {
   const [xlmBalance, setXlmBalance] = useState<bigint>(0n);
 
   const userAddress = devWalletService.getPublicKey();
-  const hasMounted = useRef(false);
 
   const copyAddressToClipboard = async () => {
     try {
@@ -52,7 +51,7 @@ export function Dashboard({ playerNumber, onLogout }: DashboardProps) {
       await blendizzardService.selectFaction(userAddress, newFactionId, signer);
 
       // Refresh dashboard data to update faction display
-      await loadDashboardData(false);
+      await loadDashboardData();
 
       // Close the faction switcher
       setShowFactionSwitcher(false);
@@ -144,6 +143,33 @@ export function Dashboard({ playerNumber, onLogout }: DashboardProps) {
     };
   }, [userAddress]);
 
+  // Poll for epoch changes periodically (other players might cycle the epoch)
+  useEffect(() => {
+    const pollEpoch = async () => {
+      try {
+        // Invalidate epoch cache and fetch fresh data
+        requestCache.invalidate('current-epoch');
+        const newEpoch = await blendizzardService.getCurrentEpoch();
+
+        // If epoch changed, update everything
+        if (newEpoch !== currentEpoch) {
+          console.log(`Epoch changed from ${currentEpoch} to ${newEpoch} - refreshing all data`);
+          setCurrentEpoch(newEpoch);
+
+          // Invalidate all caches and reload dashboard
+          await loadDashboardData();
+        }
+      } catch (err) {
+        console.error('Failed to poll epoch:', err);
+      }
+    };
+
+    // Poll every 15 seconds to catch epoch cycles by other players
+    const interval = setInterval(pollEpoch, 15000);
+
+    return () => clearInterval(interval);
+  }, [currentEpoch, userAddress]);
+
   useEffect(() => {
     // Only set up auto-refresh if no game is active
     if (!isGameActive) {
@@ -159,11 +185,12 @@ export function Dashboard({ playerNumber, onLogout }: DashboardProps) {
     }
   }, [isGameActive, userAddress]);
 
-  const loadDashboardData = async (isInitialLoad = false) => {
+  const loadDashboardData = async () => {
     try {
       // Invalidate relevant cache entries to force fresh data
       requestCache.invalidatePrefix('current-epoch');
       requestCache.invalidatePrefix(createCacheKey('vault-balance', userAddress));
+      requestCache.invalidatePrefix(createCacheKey('usdc-balance', userAddress)); // Also refresh USDC balance (used by VaultQuickActions)
       requestCache.invalidatePrefix(createCacheKey('xlm-balance', userAddress));
       requestCache.invalidatePrefix(createCacheKey('player', userAddress));
       requestCache.invalidatePrefix(createCacheKey('epoch-player'));
@@ -288,7 +315,7 @@ export function Dashboard({ playerNumber, onLogout }: DashboardProps) {
       <div className="p-4 grid grid-cols-12 gap-4">
         {/* Left Sidebar - Epoch & Stats */}
         <div className="col-span-3 space-y-4">
-          <EpochTimer currentEpoch={currentEpoch} onEpochCycled={() => loadDashboardData(false)} />
+          <EpochTimer currentEpoch={currentEpoch} onEpochCycled={() => loadDashboardData()} />
           <FactionStandings currentEpoch={currentEpoch} refreshTrigger={standingsRefresh} />
 
           {/* Player Stats Card */}

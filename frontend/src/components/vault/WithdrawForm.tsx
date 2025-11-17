@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { feeVaultService } from '@/services/feeVaultService';
 import { USDC_DECIMALS } from '@/utils/constants';
+import { contract } from '@stellar/stellar-sdk';
 
 interface WithdrawFormProps {
   userAddress: string;
-  onSign: () => { signTransaction: (xdr: string) => Promise<string>; signAuthEntry?: any };
+  onSign: () => Pick<contract.ClientOptions, 'signTransaction' | 'signAuthEntry'>;
   onSuccess?: () => void;
 }
 

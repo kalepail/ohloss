@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { feeVaultService } from '@/services/feeVaultService';
 import { devWalletService } from '@/services/devWalletService';
 import { balanceService } from '@/services/balanceService';

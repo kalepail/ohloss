@@ -272,11 +272,25 @@ const claimabilityResults = await Promise.all(
 - After: ~9 RPC calls (with 30s caching preventing unnecessary refetches)
 - **Plus**: Auto-refresh now only invalidates cache instead of forcing immediate refetch
 
+### Additional Optimizations (2024-01-XX)
+
+After production testing revealed ~48-103 RPC calls on player selection (far above target), additional uncached components were identified and optimized:
+
+7. ✅ **VaultBalance.tsx** - Added requestCache for getUserBalance() and getUserShares() calls
+8. ✅ **NumberGuessGame.tsx** - Added requestCache for getGame() calls (5s TTL for game state)
+
+**Impact:**
+- VaultBalance was making 2 uncached calls every mount (getUserBalance, getUserShares)
+- NumberGuessGame was making multiple uncached getGame() calls
+- These were major contributors to the excessive RPC call count
+
 ### Next Steps (Optional Future Optimizations)
 
 1. ✅ ~~Create `src/utils/requestCache.ts` utility~~
 2. ✅ ~~Apply requestCache to all components (Dashboard, VaultQuickActions, FactionStandings, EpochTimer, RewardsClaim)~~
 3. ✅ ~~Test and verify RPC call reduction (achieved ~55% reduction!)~~
-4. 🎯 **CURRENT STATE: OPTIMIZED** - No immediate action needed
-5. ⚠️ Future: Create `src/contexts/DashboardDataContext.tsx` for even more aggressive sharing (optional)
-6. ⚠️ Future: Consider React Query/SWR for advanced features (optional)
+4. ✅ ~~Optimize VaultBalance and NumberGuessGame components~~
+5. 🎯 **CURRENT STATE: FULLY OPTIMIZED** - All components now use requestCache
+6. ⚠️ Future: Monitor production RPC usage to verify <15 calls on player selection
+7. ⚠️ Future: Create `src/contexts/DashboardDataContext.tsx` for even more aggressive sharing (optional)
+8. ⚠️ Future: Consider React Query/SWR for advanced features (optional)

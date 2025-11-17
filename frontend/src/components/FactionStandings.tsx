@@ -50,7 +50,7 @@ export function FactionStandings({ currentEpoch, refreshTrigger }: FactionStandi
             factionPoints = epochInfo.faction_standings.get(faction.id);
           } else if (Array.isArray(epochInfo.faction_standings)) {
             // If it's an array of [key, value] tuples
-            const entry = epochInfo.faction_standings.find(([k]) => k === faction.id);
+            const entry = (epochInfo.faction_standings as Array<[number, any]>).find(([k]) => k === faction.id);
             factionPoints = entry ? entry[1] : undefined;
           } else if (typeof epochInfo.faction_standings === 'object') {
             // If it's a plain object with numeric keys

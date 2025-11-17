@@ -189,7 +189,8 @@ export class NumberGuessService {
     publicKey: string
   ): Promise<string[]> {
     const client = this.createSigningClient(publicKey, {
-      signTransaction: async (xdr: string) => xdr,
+      signTransaction: async (xdr: string) => ({ signedTxXdr: xdr }),
+      signAuthEntry: async (xdr: string) => ({ signedAuthEntry: xdr }),
     });
 
     const tx = client.txFromXDR(xdr);
@@ -216,8 +217,8 @@ export class NumberGuessService {
     // Parse the XDR into a Transaction object
     const transaction = TransactionBuilder.fromXDR(xdr, NETWORK_PASSPHRASE);
 
-    // Get the transaction source
-    const transactionSource = transaction.source;
+    // Get the transaction source (only regular Transactions have .source, not FeeBumpTransactions)
+    const transactionSource = 'source' in transaction ? transaction.source : '';
 
     // Get the first operation (should be invokeHostFunction for contract calls)
     const operation = transaction.operations[0];

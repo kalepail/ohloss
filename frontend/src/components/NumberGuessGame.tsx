@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { numberGuessService } from '@/services/numberGuessService';
 import { devWalletService } from '@/services/devWalletService';
+import { requestCache, createCacheKey } from '@/utils/requestCache';
 import type { Game } from '../../../bunt/bindings/number-guess/dist/index';
 
 interface NumberGuessGameProps {
@@ -62,7 +63,12 @@ export function NumberGuessGame({
 
   const loadGameState = async () => {
     try {
-      const game = await numberGuessService.getGame(sessionId);
+      // Use short TTL (5s) since game state can change frequently, but still dedupe rapid calls
+      const game = await requestCache.dedupe(
+        createCacheKey('game-state', sessionId),
+        () => numberGuessService.getGame(sessionId),
+        5000 // 5 second TTL for game state
+      );
       setGameState(game);
 
       // Determine game phase based on state
@@ -88,6 +94,14 @@ export function NumberGuessGame({
     }
   }, [sessionId, gamePhase]);
 
+  // Auto-refresh standings when game completes (for passive player who didn't call reveal_winner)
+  useEffect(() => {
+    if (gamePhase === 'complete' && gameState?.winner) {
+      console.log('Game completed! Refreshing faction standings and dashboard data...');
+      onStandingsRefresh(); // This refreshes both standings and Dashboard FP - don't call onGameComplete() here or it will close the game!
+    }
+  }, [gamePhase, gameState?.winner]);
+
   // Parse XDR details when import XDR changes
   useEffect(() => {
     if (importXDR.trim()) {
@@ -104,50 +118,6 @@ export function NumberGuessGame({
       setXdrDetails(null);
     }
   }, [importXDR]);
-
-  const handleCreateGame = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      setSuccess(null);
-
-      const p1Wager = parseWager(player1Wager);
-      const p2Wager = parseWager(player2Wager);
-
-      if (!p1Wager || p1Wager <= 0n) {
-        throw new Error('Enter a valid Player 1 wager');
-      }
-      if (!p2Wager || p2Wager <= 0n) {
-        throw new Error('Enter a valid Player 2 wager');
-      }
-      if (!player2Address) {
-        throw new Error('Enter Player 2 address');
-      }
-
-      const signer = devWalletService.getSigner();
-      await numberGuessService.startGame(
-        sessionId,
-        userAddress,
-        player2Address,
-        p1Wager,
-        p2Wager,
-        signer
-      );
-
-      setSuccess('Game created successfully!');
-      setGamePhase('guess');
-      await loadGameState();
-      onGameComplete(); // Refresh dashboard stats
-
-      // Clear success message after 2 seconds
-      setTimeout(() => setSuccess(null), 2000);
-    } catch (err) {
-      console.error('Create game error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to create game');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handlePrepareTransaction = async () => {
     try {
@@ -169,6 +139,8 @@ export function NumberGuessGame({
       }
 
       const signer = devWalletService.getSigner();
+
+      console.log('Preparing transaction for Player 1 to sign...');
       const xdr = await numberGuessService.prepareStartGame(
         sessionId,
         userAddress,
@@ -178,6 +150,7 @@ export function NumberGuessGame({
         signer
       );
 
+      console.log('Transaction prepared successfully! Player 1 has signed their part.');
       setExportedXDR(xdr);
       setSuccess('Transaction prepared! Copy the XDR below and send it to Player 2. Waiting for them to sign...');
 
@@ -187,7 +160,7 @@ export function NumberGuessGame({
           // Try to load the game
           const game = await numberGuessService.getGame(sessionId);
           if (game) {
-            console.log('Game found! Transitioning to guess phase');
+            console.log('Game found! Player 2 has finalized the transaction. Transitioning to guess phase...');
             clearInterval(pollInterval);
 
             // Update game state
@@ -195,6 +168,9 @@ export function NumberGuessGame({
             setExportedXDR(null);
             setSuccess('Game created! Player 2 has signed and submitted.');
             setGamePhase('guess');
+
+            // Refresh Dashboard to show updated Available FP (locked in game)
+            onStandingsRefresh();
 
             // Clear success message after 2 seconds
             setTimeout(() => setSuccess(null), 2000);
@@ -214,7 +190,22 @@ export function NumberGuessGame({
       }, 300000);
     } catch (err) {
       console.error('Prepare transaction error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to prepare transaction');
+      // Extract detailed error message
+      let errorMessage = 'Failed to prepare transaction';
+      if (err instanceof Error) {
+        errorMessage = err.message;
+
+        // Check for common errors
+        if (err.message.includes('insufficient')) {
+          errorMessage = `Insufficient FP: ${err.message}. Make sure you have enough Faction Points for the wager.`;
+        } else if (err.message.includes('auth')) {
+          errorMessage = `Authorization failed: ${err.message}. Check your wallet connection.`;
+        }
+      }
+
+      setError(errorMessage);
+
+      // Keep the component in 'create' phase so user can see the error and retry
     } finally {
       setLoading(false);
     }
@@ -248,9 +239,7 @@ export function NumberGuessGame({
       }
 
       const signer = devWalletService.getSigner();
-
-      // Update session ID from parsed XDR
-      setSessionId(xdrDetails.sessionId);
+      const parsedSessionId = xdrDetails.sessionId;
 
       // Step 1: Check what signatures are needed
       const needsSigning = await numberGuessService.checkRequiredSignatures(
@@ -261,6 +250,7 @@ export function NumberGuessGame({
       console.log('Addresses that need to sign:', needsSigning);
 
       // Step 2: Player 2 signs their auth entry
+      console.log('Signing auth entry...');
       const signedXDR = await numberGuessService.importAndSignAuthEntry(
         importXDR.trim(),
         userAddress,
@@ -268,23 +258,49 @@ export function NumberGuessGame({
       );
 
       // Step 3: Player 2 finalizes and submits (they are the transaction source)
+      // This includes simulation and submission - any error here will be caught and displayed
+      console.log('Simulating and submitting transaction...');
       await numberGuessService.finalizeStartGame(
         signedXDR,
         userAddress,
         signer
       );
 
+      // If we get here, transaction succeeded! Now update state.
+      console.log('Transaction submitted successfully! Updating state...');
+      setSessionId(parsedSessionId);
       setSuccess('Game created successfully! Both players signed.');
       setGamePhase('guess');
       setImportXDR('');
       setXdrDetails(null);
+
+      // Load the newly created game state
       await loadGameState();
+
+      // Refresh Dashboard to show updated Available FP (locked in game)
+      onStandingsRefresh();
 
       // Clear success message after 2 seconds
       setTimeout(() => setSuccess(null), 2000);
     } catch (err) {
       console.error('Import transaction error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to import and sign transaction');
+      // Extract detailed error message if available
+      let errorMessage = 'Failed to import and sign transaction';
+      if (err instanceof Error) {
+        errorMessage = err.message;
+
+        // Check for common Soroban errors
+        if (err.message.includes('simulation failed')) {
+          errorMessage = `Simulation failed: ${err.message}. Check that you have enough FP and the game parameters are correct.`;
+        } else if (err.message.includes('transaction failed')) {
+          errorMessage = `Transaction failed: ${err.message}. The game could not be created on the blockchain.`;
+        }
+      }
+
+      setError(errorMessage);
+
+      // Keep the component in 'create' phase so user can see the error and retry
+      // Don't change gamePhase or clear any fields - let the user see what went wrong
     } finally {
       setLoading(false);
     }
@@ -301,8 +317,12 @@ export function NumberGuessGame({
         throw new Error('Enter a valid session ID');
       }
 
-      // Try to load the game
-      const game = await numberGuessService.getGame(parsedSessionId);
+      // Try to load the game (use cache to prevent duplicate calls)
+      const game = await requestCache.dedupe(
+        createCacheKey('game-state', parsedSessionId),
+        () => numberGuessService.getGame(parsedSessionId),
+        5000
+      );
 
       // Verify the user is one of the players
       if (game.player1 !== userAddress && game.player2 !== userAddress) {
@@ -385,12 +405,13 @@ export function NumberGuessGame({
       setSuccess(null);
 
       const signer = devWalletService.getSigner();
-      const winner = await numberGuessService.revealWinner(sessionId, userAddress, signer);
+      const winnerResult = await numberGuessService.revealWinner(sessionId, userAddress, signer);
 
       // Reload game state to get the winner
       await loadGameState();
 
       // Show success message (will be shown along with winner display)
+      const winner = (winnerResult as any).unwrap ? (winnerResult as any).unwrap() : winnerResult;
       const isWinner = winner === userAddress;
       setSuccess(isWinner ? '🎉 You won!' : 'Game complete! Winner revealed.');
 

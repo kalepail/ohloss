@@ -253,7 +253,14 @@ export class BlendizzardService {
         throw new Error(`Failed to cycle epoch: ${errorMessage}`);
       }
 
-      // Return the new epoch number
+      // Return the new epoch number - handle Result type unwrapping
+      if (typeof sentTx.result === 'number') {
+        return sentTx.result;
+      }
+      // Handle Result<number, ErrorMessage> type
+      if (sentTx.result && typeof sentTx.result === 'object' && 'unwrap' in sentTx.result) {
+        return Number((sentTx.result as any).unwrap());
+      }
       return Number(sentTx.result);
     } catch (err) {
       if (err instanceof Error && err.message.includes('Transaction failed!')) {

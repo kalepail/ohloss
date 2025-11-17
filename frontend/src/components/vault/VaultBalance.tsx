@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { feeVaultService } from '@/services/feeVaultService';
+import { requestCache, createCacheKey } from '@/utils/requestCache';
 import { USDC_DECIMALS } from '@/utils/constants';
 
 interface VaultBalanceProps {
@@ -13,24 +14,41 @@ export function VaultBalance({ userAddress }: VaultBalanceProps) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadBalance();
+    const abortController = new AbortController();
+    loadBalance(abortController.signal);
+
+    return () => {
+      abortController.abort();
+    };
   }, [userAddress]);
 
-  const loadBalance = async () => {
+  const loadBalance = async (signal?: AbortSignal) => {
     try {
       setLoading(true);
       setError(null);
 
       const [userBalance, userShares] = await Promise.all([
-        feeVaultService.getUserBalance(userAddress),
-        feeVaultService.getUserShares(userAddress),
+        requestCache.dedupe(
+          createCacheKey('vault-balance', userAddress),
+          () => feeVaultService.getUserBalance(userAddress),
+          30000,
+          signal
+        ),
+        requestCache.dedupe(
+          createCacheKey('vault-shares', userAddress),
+          () => feeVaultService.getUserShares(userAddress),
+          30000,
+          signal
+        ),
       ]);
 
       setBalance(userBalance);
       setShares(userShares);
-    } catch (err) {
-      console.error('Error loading vault balance:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load balance');
+    } catch (err: any) {
+      if (err?.name !== 'AbortError') {
+        console.error('Error loading vault balance:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load balance');
+      }
     } finally {
       setLoading(false);
     }
@@ -63,7 +81,11 @@ export function VaultBalance({ userAddress }: VaultBalanceProps) {
         </h3>
         <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
         <button
-          onClick={loadBalance}
+          onClick={() => {
+            requestCache.invalidate(createCacheKey('vault-balance', userAddress));
+            requestCache.invalidate(createCacheKey('vault-shares', userAddress));
+            loadBalance();
+          }}
           className="mt-4 btn-secondary text-sm"
         >
           Retry
@@ -93,7 +115,12 @@ export function VaultBalance({ userAddress }: VaultBalanceProps) {
       </div>
 
       <button
-        onClick={loadBalance}
+        onClick={() => {
+          // Invalidate cache to force fresh data on manual refresh
+          requestCache.invalidate(createCacheKey('vault-balance', userAddress));
+          requestCache.invalidate(createCacheKey('vault-shares', userAddress));
+          loadBalance();
+        }}
         className="mt-4 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
       >
         Refresh
