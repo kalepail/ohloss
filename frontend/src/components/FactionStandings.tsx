@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { blendizzardService } from '@/services/blendizzardService';
+import { requestCache, createCacheKey } from '@/utils/requestCache';
 import { USDC_DECIMALS } from '@/utils/constants';
 
 interface FactionStandingsProps {
   currentEpoch: number;
+  refreshTrigger?: number;
 }
 
 const FACTIONS = [
@@ -12,18 +14,30 @@ const FACTIONS = [
   { id: 2, name: 'SpecialRock', emoji: '🪨', color: 'from-gray-500 to-slate-500' },
 ];
 
-export function FactionStandings({ currentEpoch }: FactionStandingsProps) {
+export function FactionStandings({ currentEpoch, refreshTrigger }: FactionStandingsProps) {
   const [standings, setStandings] = useState<Array<{ faction: typeof FACTIONS[0]; points: bigint }>>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadStandings();
-  }, [currentEpoch]);
+  // Ensure refreshTrigger is always a number for stable dependency array
+  const stableRefreshTrigger = refreshTrigger ?? 0;
 
-  const loadStandings = async () => {
-    try {
-      setLoading(true);
-      const epochInfo = await blendizzardService.getEpoch(currentEpoch);
+  useEffect(() => {
+    const abortController = new AbortController();
+
+    const loadStandings = async () => {
+      try {
+        // Don't show loading spinner on auto-refresh, only on initial load
+        if (standings.length === 0) {
+          setLoading(true);
+        }
+
+        // Use requestCache to prevent duplicate calls
+        const epochInfo = await requestCache.dedupe(
+          createCacheKey('epoch', currentEpoch),
+          () => blendizzardService.getEpoch(currentEpoch),
+          30000,
+          abortController.signal
+        );
 
       const standingsData = FACTIONS.map((faction) => {
         let points = 0n;
@@ -48,20 +62,45 @@ export function FactionStandings({ currentEpoch }: FactionStandingsProps) {
         return { faction, points };
       }).sort((a, b) => Number(b.points - a.points));
 
-      setStandings(standingsData);
-    } catch (error) {
-      console.error('Failed to load faction standings:', error);
-      // Set empty standings on error to prevent constant error spam
-      setStandings(FACTIONS.map(faction => ({ faction, points: 0n })));
-    } finally {
-      setLoading(false);
-    }
-  };
+        setStandings(standingsData);
+      } catch (error: any) {
+        if (error?.name !== 'AbortError') {
+          console.error('Failed to load faction standings:', error);
+          // Set empty standings on error to prevent constant error spam
+          setStandings(FACTIONS.map(faction => ({ faction, points: 0n })));
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadStandings();
+
+    // Auto-refresh standings every 30 seconds
+    const interval = setInterval(() => {
+      // Invalidate cache before refresh to get fresh data
+      requestCache.invalidate(createCacheKey('epoch', currentEpoch));
+    }, 30000);
+
+    return () => {
+      clearInterval(interval);
+      abortController.abort();
+    };
+  }, [currentEpoch, stableRefreshTrigger]);
 
   const formatPoints = (points: bigint): string => {
     const divisor = BigInt(10 ** USDC_DECIMALS);
     const whole = points / divisor;
-    return whole.toLocaleString();
+    const remainder = points % divisor;
+
+    // Format with 2 decimal places
+    const decimal = Number(remainder) / Number(divisor);
+    const formatted = Number(whole) + decimal;
+
+    return formatted.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
   };
 
   if (loading) {

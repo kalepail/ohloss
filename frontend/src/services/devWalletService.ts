@@ -50,7 +50,7 @@ export class DevWalletService {
   /**
    * Sign a transaction XDR (for backwards compatibility)
    */
-  async signTransaction(xdr: string): Promise<string> {
+  async signTransaction(xdr: string) {
     if (!this.keypair) {
       throw new Error('Dev wallet not initialized. Call initPlayer() first.');
     }

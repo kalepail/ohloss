@@ -49,6 +49,7 @@ export function GamesCatalog({ userAddress, currentEpoch, availableFP, onGameCom
           currentEpoch={currentEpoch}
           availableFP={availableFP}
           onBack={handleBackToGames}
+          onStandingsRefresh={onGameComplete}
           onGameComplete={() => {
             handleBackToGames();
             onGameComplete();

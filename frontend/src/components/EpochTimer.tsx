@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { blendizzardService } from '@/services/blendizzardService';
 import { devWalletService } from '@/services/devWalletService';
+import { requestCache, createCacheKey } from '@/utils/requestCache';
 
 interface EpochTimerProps {
   currentEpoch: number;
@@ -16,7 +17,30 @@ export function EpochTimer({ currentEpoch, onEpochCycled }: EpochTimerProps) {
   const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
+    const abortController = new AbortController();
+
+    const loadEpochData = async () => {
+      try {
+        // Use requestCache to prevent duplicate calls
+        const epochInfo = await requestCache.dedupe(
+          createCacheKey('epoch', currentEpoch),
+          () => blendizzardService.getEpoch(currentEpoch),
+          30000,
+          abortController.signal
+        );
+        setEpochEndTime(Number(epochInfo.end_time));
+      } catch (error: any) {
+        if (error?.name !== 'AbortError') {
+          console.error('Failed to load epoch data:', error);
+        }
+      }
+    };
+
     loadEpochData();
+
+    return () => {
+      abortController.abort();
+    };
   }, [currentEpoch]);
 
   useEffect(() => {
@@ -50,15 +74,6 @@ export function EpochTimer({ currentEpoch, onEpochCycled }: EpochTimerProps) {
 
     return () => clearInterval(timer);
   }, [epochEndTime]);
-
-  const loadEpochData = async () => {
-    try {
-      const epochInfo = await blendizzardService.getEpoch(currentEpoch);
-      setEpochEndTime(Number(epochInfo.end_time));
-    } catch (error) {
-      console.error('Failed to load epoch data:', error);
-    }
-  };
 
   const handleCycleEpoch = async () => {
     try {

@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { blendizzardService } from '@/services/blendizzardService';
 import { feeVaultService } from '@/services/feeVaultService';
 import { devWalletService } from '@/services/devWalletService';
+import { balanceService } from '@/services/balanceService';
+import { requestCache, createCacheKey } from '@/utils/requestCache';
 import { USDC_DECIMALS } from '@/utils/constants';
 import { FactionSelection } from './FactionSelection';
 import { EpochTimer } from './EpochTimer';
@@ -18,13 +20,19 @@ interface DashboardProps {
 export function Dashboard({ playerNumber, onLogout }: DashboardProps) {
   const [currentEpoch, setCurrentEpoch] = useState<number>(0);
   const [vaultBalance, setVaultBalance] = useState<bigint>(0n);
-  const [faction, setFaction] = useState<number | null>(null);
+  const [faction, setFaction] = useState<number | null>(null); // Selected faction (for next epoch)
+  const [currentEpochFaction, setCurrentEpochFaction] = useState<number | null>(null); // Locked faction for current epoch
   const [availableFP, setAvailableFP] = useState<bigint>(0n);
   const [loading, setLoading] = useState(true);
   const [isGameActive, setIsGameActive] = useState(false);
   const [addressCopied, setAddressCopied] = useState(false);
+  const [standingsRefresh, setStandingsRefresh] = useState(0);
+  const [showFactionSwitcher, setShowFactionSwitcher] = useState(false);
+  const [switchingFaction, setSwitchingFaction] = useState(false);
+  const [xlmBalance, setXlmBalance] = useState<bigint>(0n);
 
   const userAddress = devWalletService.getPublicKey();
+  const hasMounted = useRef(false);
 
   const copyAddressToClipboard = async () => {
     try {
@@ -36,53 +44,164 @@ export function Dashboard({ playerNumber, onLogout }: DashboardProps) {
     }
   };
 
+  const handleSwitchFaction = async (newFactionId: number) => {
+    try {
+      setSwitchingFaction(true);
+      const signer = devWalletService.getSigner();
+
+      await blendizzardService.selectFaction(userAddress, newFactionId, signer);
+
+      // Refresh dashboard data to update faction display
+      await loadDashboardData(false);
+
+      // Close the faction switcher
+      setShowFactionSwitcher(false);
+    } catch (error) {
+      console.error('Failed to switch faction:', error);
+      alert(`Failed to switch faction: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setSwitchingFaction(false);
+    }
+  };
+
   useEffect(() => {
-    // Initial load on mount only
-    loadDashboardData(true);
-  }, []);
+    const abortController = new AbortController();
+
+    const loadData = async () => {
+      try {
+        setLoading(true);
+
+        // Use requestCache to prevent duplicate calls in React Strict Mode
+        const [epoch, balance, xlm] = await Promise.all([
+          requestCache.dedupe(
+            'current-epoch',
+            () => blendizzardService.getCurrentEpoch(),
+            30000,
+            abortController.signal
+          ),
+          requestCache.dedupe(
+            createCacheKey('vault-balance', userAddress),
+            () => feeVaultService.getUserBalance(userAddress),
+            30000,
+            abortController.signal
+          ),
+          requestCache.dedupe(
+            createCacheKey('xlm-balance', userAddress),
+            () => balanceService.getXLMBalance(userAddress),
+            30000,
+            abortController.signal
+          ),
+        ]);
+
+        setCurrentEpoch(epoch);
+        setVaultBalance(balance);
+        setXlmBalance(xlm);
+
+        // Try to get player data
+        try {
+          const [playerData, epochPlayerData] = await Promise.all([
+            requestCache.dedupe(
+              createCacheKey('player', userAddress),
+              () => blendizzardService.getPlayer(userAddress),
+              30000,
+              abortController.signal
+            ),
+            requestCache.dedupe(
+              createCacheKey('epoch-player', epoch, userAddress),
+              () => blendizzardService.getEpochPlayer(epoch, userAddress),
+              30000,
+              abortController.signal
+            ),
+          ]);
+
+          setFaction(playerData.selected_faction); // Next epoch faction
+          setAvailableFP(BigInt(epochPlayerData.available_fp));
+          setCurrentEpochFaction(epochPlayerData.epoch_faction !== null && epochPlayerData.epoch_faction !== undefined
+            ? epochPlayerData.epoch_faction
+            : null); // Current epoch locked faction
+        } catch {
+          // Player might not exist yet
+          setFaction(null);
+          setCurrentEpochFaction(null);
+          setAvailableFP(0n);
+        }
+
+        // Trigger faction standings refresh
+        setStandingsRefresh(prev => prev + 1);
+      } catch (error: any) {
+        if (error?.name !== 'AbortError') {
+          console.error('Failed to load dashboard data:', error);
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+
+    return () => {
+      abortController.abort();
+    };
+  }, [userAddress]);
 
   useEffect(() => {
     // Only set up auto-refresh if no game is active
     if (!isGameActive) {
-      const interval = setInterval(() => loadDashboardData(false), 30000); // Refresh every 30s without loading screen
+      const interval = setInterval(() => {
+        // Invalidate cache before refresh to get fresh data
+        requestCache.invalidatePrefix('current-epoch');
+        requestCache.invalidatePrefix(createCacheKey('vault-balance', userAddress));
+        requestCache.invalidatePrefix(createCacheKey('xlm-balance', userAddress));
+        requestCache.invalidatePrefix(createCacheKey('player', userAddress));
+        requestCache.invalidatePrefix(createCacheKey('epoch-player'));
+      }, 30000); // Invalidate cache every 30s to trigger fresh fetches
       return () => clearInterval(interval);
     }
-  }, [isGameActive]);
+  }, [isGameActive, userAddress]);
 
   const loadDashboardData = async (isInitialLoad = false) => {
     try {
-      // Only show loading screen on initial load, not on refresh
-      if (isInitialLoad) {
-        setLoading(true);
-      }
+      // Invalidate relevant cache entries to force fresh data
+      requestCache.invalidatePrefix('current-epoch');
+      requestCache.invalidatePrefix(createCacheKey('vault-balance', userAddress));
+      requestCache.invalidatePrefix(createCacheKey('xlm-balance', userAddress));
+      requestCache.invalidatePrefix(createCacheKey('player', userAddress));
+      requestCache.invalidatePrefix(createCacheKey('epoch-player'));
 
-      const [epoch, balance] = await Promise.all([
+      // Re-trigger the main useEffect by updating a dependency if needed
+      // For now, we'll manually fetch without loading state for refreshes
+      const [epoch, balance, xlm] = await Promise.all([
         blendizzardService.getCurrentEpoch(),
         feeVaultService.getUserBalance(userAddress),
+        balanceService.getXLMBalance(userAddress),
       ]);
 
       setCurrentEpoch(epoch);
       setVaultBalance(balance);
+      setXlmBalance(xlm);
 
       // Try to get player data
       try {
         const playerData = await blendizzardService.getPlayer(userAddress);
-        setFaction(playerData.selected_faction);
+        setFaction(playerData.selected_faction); // Next epoch faction
 
-        // Get epoch player data for FP
+        // Get epoch player data for FP and current epoch faction
         const epochPlayerData = await blendizzardService.getEpochPlayer(epoch, userAddress);
         setAvailableFP(BigInt(epochPlayerData.available_fp));
+        setCurrentEpochFaction(epochPlayerData.epoch_faction !== null && epochPlayerData.epoch_faction !== undefined
+          ? epochPlayerData.epoch_faction
+          : null); // Current epoch locked faction
       } catch {
         // Player might not exist yet
         setFaction(null);
+        setCurrentEpochFaction(null);
         setAvailableFP(0n);
       }
+
+      // Trigger faction standings refresh
+      setStandingsRefresh(prev => prev + 1);
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
-    } finally {
-      if (isInitialLoad) {
-        setLoading(false);
-      }
     }
   };
 
@@ -90,7 +209,15 @@ export function Dashboard({ playerNumber, onLogout }: DashboardProps) {
     const divisor = BigInt(10 ** USDC_DECIMALS);
     const whole = amount / divisor;
     const fraction = amount % divisor;
-    return `${whole}.${fraction.toString().padStart(USDC_DECIMALS, '0')}`;
+
+    if (fraction === 0n) {
+      return whole.toString();
+    }
+
+    const fractionStr = fraction.toString().padStart(USDC_DECIMALS, '0');
+    // Remove trailing zeros but keep significant decimals
+    const trimmed = fractionStr.replace(/0+$/, '');
+    return `${whole}.${trimmed}`;
   };
 
   if (loading) {
@@ -136,8 +263,11 @@ export function Dashboard({ playerNumber, onLogout }: DashboardProps) {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                 </svg>
               </div>
-              <div className="text-xs font-mono font-bold text-gray-700">
+              <div className="text-xs font-mono font-bold text-gray-700 mb-1">
                 {userAddress.slice(0, 8)}...{userAddress.slice(-4)}
+              </div>
+              <div className="text-xs font-bold text-purple-600">
+                {formatAmount(xlmBalance)} XLM
               </div>
               {addressCopied && (
                 <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-green-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-lg whitespace-nowrap">
@@ -159,7 +289,7 @@ export function Dashboard({ playerNumber, onLogout }: DashboardProps) {
         {/* Left Sidebar - Epoch & Stats */}
         <div className="col-span-3 space-y-4">
           <EpochTimer currentEpoch={currentEpoch} onEpochCycled={() => loadDashboardData(false)} />
-          <FactionStandings currentEpoch={currentEpoch} />
+          <FactionStandings currentEpoch={currentEpoch} refreshTrigger={standingsRefresh} />
 
           {/* Player Stats Card */}
           <div className="bg-white/70 backdrop-blur-xl rounded-2xl p-6 shadow-lg border border-pink-100 hover:shadow-xl transition-shadow">
@@ -181,10 +311,71 @@ export function Dashboard({ playerNumber, onLogout }: DashboardProps) {
               </div>
               {faction !== null && (
                 <div className="bg-gradient-to-br from-gray-50 to-slate-50 p-4 rounded-xl border border-gray-200">
-                  <div className="text-xs font-bold uppercase tracking-wide text-gray-600 mb-1">Faction</div>
-                  <div className="text-lg font-bold text-gray-800">
-                    {faction === 0 ? '🍜 WholeNoodle' : faction === 1 ? '🗡️ PointyStick' : '🪨 SpecialRock'}
+                  <div className="text-xs font-bold uppercase tracking-wide text-gray-600 mb-2">
+                    {currentEpochFaction !== null ? 'Faction Status' : 'Your Faction'}
                   </div>
+
+                  {/* Current Epoch Faction (if player has played a game this epoch) */}
+                  {currentEpochFaction !== null ? (
+                    <>
+                      <div className="mb-2">
+                        <div className="text-xs text-gray-500 mb-0.5">Current Epoch:</div>
+                        <div className="text-lg font-bold text-gray-800">
+                          {currentEpochFaction === 0 ? '🍜 WholeNoodle' : currentEpochFaction === 1 ? '🗡️ PointyStick' : '🪨 SpecialRock'}
+                        </div>
+                      </div>
+
+                      {/* Only show Next Epoch if different from current */}
+                      {faction !== currentEpochFaction && (
+                        <div className="mb-2 pb-2 border-b border-gray-200">
+                          <div className="text-xs text-gray-500 mb-0.5">Next Epoch:</div>
+                          <div className="text-sm font-bold text-orange-600">
+                            {faction === 0 ? '🍜 WholeNoodle' : faction === 1 ? '🗡️ PointyStick' : '🪨 SpecialRock'}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    /* No current epoch faction yet - show selected faction */
+                    <div className="mb-2">
+                      <div className="text-xs text-gray-500 mb-0.5">Selected:</div>
+                      <div className="text-lg font-bold text-gray-800">
+                        {faction === 0 ? '🍜 WholeNoodle' : faction === 1 ? '🗡️ PointyStick' : '🪨 SpecialRock'}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Change Faction Button */}
+                  <button
+                    onClick={() => setShowFactionSwitcher(!showFactionSwitcher)}
+                    className="w-full text-xs px-3 py-2 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-700 font-semibold transition-colors"
+                  >
+                    {showFactionSwitcher ? 'Cancel' : 'Change Faction'}
+                  </button>
+
+                  {/* Faction Switcher Dropdown */}
+                  {showFactionSwitcher && (
+                    <div className="mt-3 pt-3 border-t border-gray-200 space-y-2">
+                      {[
+                        { id: 0, name: 'WholeNoodle', emoji: '🍜' },
+                        { id: 1, name: 'PointyStick', emoji: '🗡️' },
+                        { id: 2, name: 'SpecialRock', emoji: '🪨' },
+                      ].map((f) => (
+                        <button
+                          key={f.id}
+                          onClick={() => handleSwitchFaction(f.id)}
+                          disabled={f.id === faction || switchingFaction}
+                          className={`w-full text-left px-3 py-2 rounded-lg text-sm font-semibold transition-all ${
+                            f.id === faction
+                              ? 'bg-green-100 text-green-700 cursor-default'
+                              : 'bg-gray-100 hover:bg-gray-200 text-gray-700 cursor-pointer'
+                          } ${switchingFaction ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                          {f.emoji} {f.name} {f.id === faction && '✓'}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

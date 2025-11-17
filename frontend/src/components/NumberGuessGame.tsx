@@ -8,6 +8,7 @@ interface NumberGuessGameProps {
   currentEpoch: number;
   availableFP: bigint;
   onBack: () => void;
+  onStandingsRefresh: () => void;
   onGameComplete: () => void;
 }
 
@@ -15,6 +16,7 @@ export function NumberGuessGame({
   userAddress,
   availableFP,
   onBack,
+  onStandingsRefresh,
   onGameComplete
 }: NumberGuessGameProps) {
   // Use a session ID that fits in u32 (max 4,294,967,295)
@@ -29,9 +31,19 @@ export function NumberGuessGame({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [gamePhase, setGamePhase] = useState<'create' | 'guess' | 'reveal' | 'complete'>('create');
-  const [createMode, setCreateMode] = useState<'create' | 'import'>('create');
+  const [createMode, setCreateMode] = useState<'create' | 'import' | 'load'>('create');
   const [exportedXDR, setExportedXDR] = useState<string | null>(null);
   const [importXDR, setImportXDR] = useState('');
+  const [loadSessionId, setLoadSessionId] = useState('');
+  const [xdrCopied, setXdrCopied] = useState(false);
+  const [xdrDetails, setXdrDetails] = useState<{
+    sessionId: number;
+    player1: string;
+    player2: string;
+    player1Wager: bigint;
+    player2Wager: bigint;
+    transactionSource: string;
+  } | null>(null);
 
   const FP_DECIMALS = 7;
 
@@ -76,6 +88,23 @@ export function NumberGuessGame({
     }
   }, [sessionId, gamePhase]);
 
+  // Parse XDR details when import XDR changes
+  useEffect(() => {
+    if (importXDR.trim()) {
+      try {
+        const details = numberGuessService.parseTransactionXDR(importXDR.trim());
+        setXdrDetails(details);
+        setError(null);
+      } catch (err) {
+        console.error('Failed to parse XDR:', err);
+        setXdrDetails(null);
+        // Don't set error here, only when they try to import
+      }
+    } else {
+      setXdrDetails(null);
+    }
+  }, [importXDR]);
+
   const handleCreateGame = async () => {
     try {
       setLoading(true);
@@ -108,6 +137,10 @@ export function NumberGuessGame({
       setSuccess('Game created successfully!');
       setGamePhase('guess');
       await loadGameState();
+      onGameComplete(); // Refresh dashboard stats
+
+      // Clear success message after 2 seconds
+      setTimeout(() => setSuccess(null), 2000);
     } catch (err) {
       console.error('Create game error:', err);
       setError(err instanceof Error ? err.message : 'Failed to create game');
@@ -146,7 +179,39 @@ export function NumberGuessGame({
       );
 
       setExportedXDR(xdr);
-      setSuccess('Transaction prepared! Copy the XDR below and send it to Player 2.');
+      setSuccess('Transaction prepared! Copy the XDR below and send it to Player 2. Waiting for them to sign...');
+
+      // Start polling for the game to be created by Player 2
+      const pollInterval = setInterval(async () => {
+        try {
+          // Try to load the game
+          const game = await numberGuessService.getGame(sessionId);
+          if (game) {
+            console.log('Game found! Transitioning to guess phase');
+            clearInterval(pollInterval);
+
+            // Update game state
+            setGameState(game);
+            setExportedXDR(null);
+            setSuccess('Game created! Player 2 has signed and submitted.');
+            setGamePhase('guess');
+
+            // Clear success message after 2 seconds
+            setTimeout(() => setSuccess(null), 2000);
+          } else {
+            console.log('Game not found yet, continuing to poll...');
+          }
+        } catch (err) {
+          // Game doesn't exist yet, keep polling
+          console.log('Polling for game creation...', err instanceof Error ? err.message : 'checking');
+        }
+      }, 3000); // Poll every 3 seconds
+
+      // Stop polling after 5 minutes
+      setTimeout(() => {
+        clearInterval(pollInterval);
+        console.log('Stopped polling after 5 minutes');
+      }, 300000);
     } catch (err) {
       console.error('Prepare transaction error:', err);
       setError(err instanceof Error ? err.message : 'Failed to prepare transaction');
@@ -165,20 +230,112 @@ export function NumberGuessGame({
         throw new Error('Enter transaction XDR');
       }
 
+      // Validate XDR details
+      if (!xdrDetails) {
+        throw new Error('Failed to parse transaction XDR. Invalid format.');
+      }
+
+      // Verify the user is Player 2 (the transaction source)
+      if (xdrDetails.transactionSource !== userAddress) {
+        throw new Error(
+          `You are not the transaction source for this game. Expected: ${xdrDetails.transactionSource.slice(0, 8)}...${xdrDetails.transactionSource.slice(-4)}`
+        );
+      }
+
+      // Verify the user is one of the players
+      if (xdrDetails.player1 !== userAddress && xdrDetails.player2 !== userAddress) {
+        throw new Error('You are not one of the players in this game');
+      }
+
       const signer = devWalletService.getSigner();
-      await numberGuessService.importAndCompleteStartGame(
+
+      // Update session ID from parsed XDR
+      setSessionId(xdrDetails.sessionId);
+
+      // Step 1: Check what signatures are needed
+      const needsSigning = await numberGuessService.checkRequiredSignatures(
+        importXDR.trim(),
+        userAddress
+      );
+
+      console.log('Addresses that need to sign:', needsSigning);
+
+      // Step 2: Player 2 signs their auth entry
+      const signedXDR = await numberGuessService.importAndSignAuthEntry(
         importXDR.trim(),
         userAddress,
         signer
       );
 
-      setSuccess('Game created successfully!');
+      // Step 3: Player 2 finalizes and submits (they are the transaction source)
+      await numberGuessService.finalizeStartGame(
+        signedXDR,
+        userAddress,
+        signer
+      );
+
+      setSuccess('Game created successfully! Both players signed.');
       setGamePhase('guess');
       setImportXDR('');
+      setXdrDetails(null);
       await loadGameState();
+
+      // Clear success message after 2 seconds
+      setTimeout(() => setSuccess(null), 2000);
     } catch (err) {
       console.error('Import transaction error:', err);
       setError(err instanceof Error ? err.message : 'Failed to import and sign transaction');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLoadExistingGame = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      setSuccess(null);
+
+      const parsedSessionId = parseInt(loadSessionId.trim());
+      if (isNaN(parsedSessionId) || parsedSessionId <= 0) {
+        throw new Error('Enter a valid session ID');
+      }
+
+      // Try to load the game
+      const game = await numberGuessService.getGame(parsedSessionId);
+
+      // Verify the user is one of the players
+      if (game.player1 !== userAddress && game.player2 !== userAddress) {
+        throw new Error('You are not a player in this game');
+      }
+
+      // Load successful - update session ID and transition to game
+      setSessionId(parsedSessionId);
+      setGameState(game);
+      setLoadSessionId('');
+
+      // Determine game phase based on game state
+      if (game.winner !== null && game.winner !== undefined) {
+        // Game is complete - show reveal phase with winner
+        setGamePhase('reveal');
+        const isWinner = game.winner === userAddress;
+        setSuccess(isWinner ? '🎉 You won this game!' : 'Game complete. Winner revealed.');
+      } else if (game.player1_guess !== null && game.player1_guess !== undefined &&
+          game.player2_guess !== null && game.player2_guess !== undefined) {
+        // Both players guessed, waiting for reveal
+        setGamePhase('reveal');
+        setSuccess('Game loaded! Both players have guessed. You can reveal the winner.');
+      } else {
+        // Still in guessing phase
+        setGamePhase('guess');
+        setSuccess('Game loaded! Make your guess.');
+      }
+
+      // Clear success message after 2 seconds
+      setTimeout(() => setSuccess(null), 2000);
+    } catch (err) {
+      console.error('Load game error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load game');
     } finally {
       setLoading(false);
     }
@@ -188,9 +345,11 @@ export function NumberGuessGame({
     if (exportedXDR) {
       try {
         await navigator.clipboard.writeText(exportedXDR);
-        setSuccess('XDR copied to clipboard! Send it to Player 2.');
+        setXdrCopied(true);
+        setTimeout(() => setXdrCopied(false), 2000);
       } catch (err) {
         console.error('Failed to copy XDR:', err);
+        setError('Failed to copy to clipboard');
       }
     }
   };
@@ -228,9 +387,18 @@ export function NumberGuessGame({
       const signer = devWalletService.getSigner();
       const winner = await numberGuessService.revealWinner(sessionId, userAddress, signer);
 
-      setSuccess(`Winner: ${winner}`);
+      // Reload game state to get the winner
       await loadGameState();
-      onGameComplete();
+
+      // Show success message (will be shown along with winner display)
+      const isWinner = winner === userAddress;
+      setSuccess(isWinner ? '🎉 You won!' : 'Game complete! Winner revealed.');
+
+      // Refresh faction standings immediately (without navigating away)
+      onStandingsRefresh();
+
+      // DON'T call onGameComplete() immediately - let user see the results
+      // User can click "Back to Games" button when ready
     } catch (err) {
       console.error('Reveal winner error:', err);
       setError(err instanceof Error ? err.message : 'Failed to reveal winner');
@@ -254,9 +422,19 @@ export function NumberGuessGame({
           <p className="text-sm text-gray-700 font-semibold mt-1">
             Guess a number 1-10. Closest guess wins!
           </p>
+          <p className="text-xs text-gray-500 font-mono mt-1">
+            Session ID: {sessionId}
+          </p>
         </div>
         <button
-          onClick={onBack}
+          onClick={() => {
+            // If game is complete (has winner), refresh stats before going back
+            if (gameState?.winner) {
+              onGameComplete();
+            } else {
+              onBack();
+            }
+          }}
           className="px-5 py-3 rounded-xl bg-gradient-to-r from-gray-200 to-gray-300 hover:from-gray-300 hover:to-gray-400 transition-all text-sm font-bold shadow-md hover:shadow-lg transform hover:scale-105"
         >
           ← Back to Games
@@ -285,6 +463,7 @@ export function NumberGuessGame({
                 setCreateMode('create');
                 setExportedXDR(null);
                 setImportXDR('');
+                setLoadSessionId('');
               }}
               className={`flex-1 py-3 px-4 rounded-lg font-bold text-sm transition-all ${
                 createMode === 'create'
@@ -292,12 +471,13 @@ export function NumberGuessGame({
                   : 'bg-white text-gray-600 hover:bg-gray-50'
               }`}
             >
-              Create & Export Transaction
+              Create & Export
             </button>
             <button
               onClick={() => {
                 setCreateMode('import');
                 setExportedXDR(null);
+                setLoadSessionId('');
               }}
               className={`flex-1 py-3 px-4 rounded-lg font-bold text-sm transition-all ${
                 createMode === 'import'
@@ -306,6 +486,20 @@ export function NumberGuessGame({
               }`}
             >
               Import Transaction
+            </button>
+            <button
+              onClick={() => {
+                setCreateMode('load');
+                setExportedXDR(null);
+                setImportXDR('');
+              }}
+              className={`flex-1 py-3 px-4 rounded-lg font-bold text-sm transition-all ${
+                createMode === 'load'
+                  ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg'
+                  : 'bg-white text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              Load Existing Game
             </button>
           </div>
 
@@ -373,22 +567,13 @@ export function NumberGuessGame({
             </p>
 
             {!exportedXDR ? (
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={handlePrepareTransaction}
-                  disabled={loading}
-                  className="py-4 rounded-xl font-bold text-white text-sm bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 disabled:from-gray-200 disabled:to-gray-300 disabled:text-gray-500 transition-all shadow-lg hover:shadow-xl transform hover:scale-105 disabled:transform-none"
-                >
-                  {loading ? 'Preparing...' : 'Prepare & Export'}
-                </button>
-                <button
-                  onClick={handleCreateGame}
-                  disabled={loading}
-                  className="py-4 rounded-xl font-bold text-white text-sm bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 disabled:from-gray-200 disabled:to-gray-300 disabled:text-gray-500 transition-all shadow-lg hover:shadow-xl transform hover:scale-105 disabled:transform-none"
-                >
-                  {loading ? 'Creating...' : 'Create Directly'}
-                </button>
-              </div>
+              <button
+                onClick={handlePrepareTransaction}
+                disabled={loading}
+                className="w-full py-4 rounded-xl font-bold text-white text-sm bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 disabled:from-gray-200 disabled:to-gray-300 disabled:text-gray-500 transition-all shadow-lg hover:shadow-xl transform hover:scale-105 disabled:transform-none"
+              >
+                {loading ? 'Preparing...' : 'Prepare & Export Transaction'}
+              </button>
             ) : (
               <div className="space-y-3">
                 <div className="p-4 bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl">
@@ -402,9 +587,9 @@ export function NumberGuessGame({
                   </div>
                   <button
                     onClick={copyXDRToClipboard}
-                    className="w-full py-3 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-bold text-sm transition-all shadow-md hover:shadow-lg transform hover:scale-105"
+                    className="w-full py-3 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-bold text-sm transition-all shadow-md hover:shadow-lg transform hover:scale-105 relative"
                   >
-                    📋 Copy XDR to Clipboard
+                    {xdrCopied ? '✓ Copied!' : '📋 Copy XDR to Clipboard'}
                   </button>
                 </div>
                 <p className="text-xs text-gray-600 text-center font-semibold">
@@ -414,7 +599,7 @@ export function NumberGuessGame({
             )}
           </div>
             </div>
-          ) : (
+          ) : createMode === 'import' ? (
             /* IMPORT MODE */
             <div className="space-y-4">
               <div className="p-4 bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-200 rounded-xl">
@@ -437,23 +622,87 @@ export function NumberGuessGame({
                 <p className="text-xs font-bold text-yellow-800 mb-2">
                   Transaction Details
                 </p>
-                <p className="text-xs text-gray-700">
-                  Session ID: {sessionId}
-                </p>
-                <p className="text-xs text-gray-600 mt-2">
-                  After importing, you'll sign and submit the transaction to start the game.
-                </p>
+                {xdrDetails ? (
+                  <div className="space-y-2 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Session ID:</span>
+                      <span className="font-bold text-gray-800">{xdrDetails.sessionId}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Player 1:</span>
+                      <span className="font-mono text-gray-800">{xdrDetails.player1.slice(0, 8)}...{xdrDetails.player1.slice(-4)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Player 2 (You):</span>
+                      <span className="font-mono text-gray-800">{xdrDetails.player2.slice(0, 8)}...{xdrDetails.player2.slice(-4)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Player 1 Wager:</span>
+                      <span className="font-bold text-gray-800">{(Number(xdrDetails.player1Wager) / 10000000).toFixed(2)} FP</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Your Wager:</span>
+                      <span className="font-bold text-gray-800">{(Number(xdrDetails.player2Wager) / 10000000).toFixed(2)} FP</span>
+                    </div>
+                    <div className="mt-3 pt-3 border-t border-yellow-200">
+                      <span className="text-gray-600">TX Source:</span>
+                      <span className="font-mono text-xs text-gray-800 ml-1">{xdrDetails.transactionSource.slice(0, 8)}...{xdrDetails.transactionSource.slice(-4)}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-600">
+                    Paste XDR above to view transaction details
+                  </p>
+                )}
               </div>
 
               <button
                 onClick={handleImportTransaction}
-                disabled={loading || !importXDR.trim()}
+                disabled={loading || !importXDR.trim() || !xdrDetails}
                 className="w-full py-4 rounded-xl font-bold text-white text-lg bg-gradient-to-r from-blue-500 via-cyan-500 to-teal-500 hover:from-blue-600 hover:via-cyan-600 hover:to-teal-600 disabled:from-gray-200 disabled:to-gray-300 disabled:text-gray-500 transition-all shadow-xl hover:shadow-2xl transform hover:scale-105 disabled:transform-none"
               >
                 {loading ? 'Importing & Signing...' : 'Import & Sign Transaction'}
               </button>
             </div>
-          )}
+          ) : createMode === 'load' ? (
+            /* LOAD EXISTING GAME MODE */
+            <div className="space-y-4">
+              <div className="p-4 bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl">
+                <p className="text-sm font-semibold text-green-800 mb-2">
+                  🎮 Load Existing Game by Session ID
+                </p>
+                <p className="text-xs text-gray-700 mb-4">
+                  Enter a session ID to load and continue an existing game. You must be one of the players.
+                </p>
+                <input
+                  type="text"
+                  value={loadSessionId}
+                  onChange={(e) => setLoadSessionId(e.target.value)}
+                  placeholder="Enter session ID (e.g., 123456789)"
+                  className="w-full px-4 py-3 rounded-xl bg-white border-2 border-green-200 focus:outline-none focus:border-green-400 focus:ring-4 focus:ring-green-100 text-sm font-mono"
+                />
+              </div>
+
+              <div className="p-4 bg-gradient-to-br from-yellow-50 to-amber-50 border-2 border-yellow-200 rounded-xl">
+                <p className="text-xs font-bold text-yellow-800 mb-2">
+                  Requirements
+                </p>
+                <ul className="text-xs text-gray-700 space-y-1 list-disc list-inside">
+                  <li>You must be Player 1 or Player 2 in the game</li>
+                  <li>Game must be active (not completed)</li>
+                  <li>Valid session ID from an existing game</li>
+                </ul>
+              </div>
+
+              <button
+                onClick={handleLoadExistingGame}
+                disabled={loading || !loadSessionId.trim()}
+                className="w-full py-4 rounded-xl font-bold text-white text-lg bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 hover:from-green-600 hover:via-emerald-600 hover:to-teal-600 disabled:from-gray-200 disabled:to-gray-300 disabled:text-gray-500 transition-all shadow-xl hover:shadow-2xl transform hover:scale-105 disabled:transform-none"
+              >
+                {loading ? 'Loading Game...' : 'Load Game'}
+              </button>
+            </div>
+          ) : null}
         </div>
       )}
 

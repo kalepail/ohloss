@@ -1,5 +1,5 @@
 import { Client as FeeVaultClient } from '../../../bunt/bindings/fee-vault/dist/index';
-import { VAULT_CONTRACT, NETWORK_PASSPHRASE, RPC_URL } from '@/utils/constants';
+import { VAULT_CONTRACT, NETWORK_PASSPHRASE, RPC_URL, DEFAULT_METHOD_OPTIONS } from '@/utils/constants';
 import { contract } from '@stellar/stellar-sdk';
 
 type ClientOptions = contract.ClientOptions;
@@ -24,7 +24,7 @@ export class FeeVaultService {
    */
   private createSigningClient(
     publicKey: string,
-    signer: { signTransaction: (xdr: string) => Promise<string>; signAuthEntry?: any }
+    signer: Pick<contract.ClientOptions, 'signTransaction' | 'signAuthEntry'>
   ): FeeVaultClient {
     const options: ClientOptions = {
       contractId: VAULT_CONTRACT,
@@ -46,10 +46,10 @@ export class FeeVaultService {
   }
 
   /**
-   * Get user's bToken balance (their vault position)
+   * Get user's underlying token balance (their vault position in BLND)
    */
   async getUserBalance(userAddress: string): Promise<bigint> {
-    const tx = await this.baseClient.get_b_tokens({ user: userAddress });
+    const tx = await this.baseClient.get_underlying_tokens({ user: userAddress });
     const result = await tx.simulate();
     return BigInt(result.result);
   }
@@ -79,10 +79,10 @@ export class FeeVaultService {
   async deposit(
     userAddress: string,
     amount: bigint,
-    signer: { signTransaction: (xdr: string) => Promise<string>; signAuthEntry?: any }
+    signer: Pick<contract.ClientOptions, 'signTransaction' | 'signAuthEntry'>
   ) {
     const client = this.createSigningClient(userAddress, signer);
-    const tx = await client.deposit({ user: userAddress, amount });
+    const tx = await client.deposit({ user: userAddress, amount }, DEFAULT_METHOD_OPTIONS);
     const { result } = await tx.signAndSend();
     return result;
   }
@@ -94,10 +94,10 @@ export class FeeVaultService {
   async withdraw(
     userAddress: string,
     amount: bigint,
-    signer: { signTransaction: (xdr: string) => Promise<string>; signAuthEntry?: any }
+    signer: Pick<contract.ClientOptions, 'signTransaction' | 'signAuthEntry'>
   ) {
     const client = this.createSigningClient(userAddress, signer);
-    const tx = await client.withdraw({ user: userAddress, amount });
+    const tx = await client.withdraw({ user: userAddress, amount }, DEFAULT_METHOD_OPTIONS);
     const { result } = await tx.signAndSend();
     return result;
   }

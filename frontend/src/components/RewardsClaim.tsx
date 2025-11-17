@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { blendizzardService } from '@/services/blendizzardService';
 import { devWalletService } from '@/services/devWalletService';
+import { requestCache, createCacheKey } from '@/utils/requestCache';
 import { USDC_DECIMALS } from '@/utils/constants';
 
 interface RewardsClaimProps {
@@ -14,35 +15,49 @@ export function RewardsClaim({ userAddress, currentEpoch, onSuccess }: RewardsCl
   const [claiming, setClaiming] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const lastCheckedEpoch = useRef<number | null>(null);
 
   useEffect(() => {
-    // Prevent duplicate checks from React Strict Mode to avoid wasting RPC rate limits
-    if (lastCheckedEpoch.current === currentEpoch) {
-      return;
-    }
-    lastCheckedEpoch.current = currentEpoch;
-    findClaimableEpochs();
-  }, [currentEpoch]);
+    const abortController = new AbortController();
 
-  const findClaimableEpochs = async () => {
-    const claimable: number[] = [];
+    const findClaimableEpochs = async () => {
+      try {
+        // Check previous 3 epochs for claimable rewards IN PARALLEL
+        const epochsToCheck = [];
+        for (let i = 1; i <= 3 && currentEpoch - i >= 0; i++) {
+          epochsToCheck.push(currentEpoch - i);
+        }
 
-    // Check previous 3 epochs for claimable rewards
-    for (let i = 1; i <= 3 && currentEpoch - i >= 0; i++) {
-      const epoch = currentEpoch - i;
+        // Run all checks in parallel using requestCache
+        const claimabilityResults = await Promise.all(
+          epochsToCheck.map((epoch) =>
+            requestCache.dedupe(
+              createCacheKey('can-claim-epoch', userAddress, epoch),
+              () => blendizzardService.canClaimEpochReward(userAddress, epoch),
+              30000,
+              abortController.signal
+            ).then((canClaim) => ({ epoch, canClaim }))
+          )
+        );
 
-      // Simulate claim to verify rewards are actually claimable
-      // This checks: epoch finalized, faction won, not already claimed, rewards available
-      const canClaim = await blendizzardService.canClaimEpochReward(userAddress, epoch);
+        // Filter to only claimable epochs
+        const claimable = claimabilityResults
+          .filter((result) => result.canClaim)
+          .map((result) => result.epoch);
 
-      if (canClaim) {
-        claimable.push(epoch);
+        setClaimableEpochs(claimable);
+      } catch (error: any) {
+        if (error?.name !== 'AbortError') {
+          console.error('Failed to check claimable epochs:', error);
+        }
       }
-    }
+    };
 
-    setClaimableEpochs(claimable);
-  };
+    findClaimableEpochs();
+
+    return () => {
+      abortController.abort();
+    };
+  }, [currentEpoch, userAddress]);
 
   const handleClaim = async (epoch: number) => {
     try {
@@ -57,6 +72,9 @@ export function RewardsClaim({ userAddress, currentEpoch, onSuccess }: RewardsCl
       const formatted = (Number(amount) / Number(divisor)).toFixed(2);
 
       setSuccess(`Claimed ${formatted} USDC from Epoch #${epoch}!`);
+
+      // Invalidate cache for this epoch since it's now claimed
+      requestCache.invalidate(createCacheKey('can-claim-epoch', userAddress, epoch));
 
       // Remove claimed epoch from list
       setClaimableEpochs(prev => prev.filter(e => e !== epoch));

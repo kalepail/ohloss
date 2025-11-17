@@ -13,6 +13,7 @@ export const GAME_CONTRACT = import.meta.env.VITE_GAME_CONTRACT;
 export const VAULT_CONTRACT = import.meta.env.VITE_VAULT_CONTRACT;
 
 // Token addresses
+export const XLM_TOKEN = import.meta.env.VITE_XLM_TOKEN;
 export const USDC_TOKEN = import.meta.env.VITE_USDC_TOKEN;
 export const BLND_TOKEN = import.meta.env.VITE_BLND_TOKEN;
 
@@ -64,6 +65,13 @@ export const BLND_DECIMALS = 7;
 export const DEFAULT_TX_TIMEOUT = 300; // 5 minutes for single-sig
 export const MULTI_SIG_TX_TIMEOUT = 600; // 10 minutes for multi-sig
 export const DEFAULT_FEE = '100000'; // Base fee in stroops
+
+// Default options for all contract method calls
+// Matches pattern from bunt/e2e-game.ts
+export const DEFAULT_METHOD_OPTIONS = {
+  fee: 100000, // Higher fee for mainnet (100,000 stroops = 0.01 XLM)
+  timeoutInSeconds: 30,
+} as const;
 
 // UI constants
 export const MIN_TOUCH_TARGET = 44; // Minimum touch target size in pixels

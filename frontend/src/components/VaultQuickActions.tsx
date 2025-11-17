@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { feeVaultService } from '@/services/feeVaultService';
 import { devWalletService } from '@/services/devWalletService';
+import { balanceService } from '@/services/balanceService';
+import { requestCache, createCacheKey } from '@/utils/requestCache';
 import { USDC_DECIMALS } from '@/utils/constants';
 
 interface VaultQuickActionsProps {
@@ -13,6 +15,56 @@ export function VaultQuickActions({ userAddress, onSuccess }: VaultQuickActionsP
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [usdcBalance, setUsdcBalance] = useState<bigint>(0n);
+
+  useEffect(() => {
+    const abortController = new AbortController();
+
+    const loadBalance = async () => {
+      try {
+        // Use requestCache to prevent duplicate calls in React Strict Mode
+        const balance = await requestCache.dedupe(
+          createCacheKey('usdc-balance', userAddress),
+          () => balanceService.getUSDCBalance(userAddress),
+          30000,
+          abortController.signal
+        );
+        setUsdcBalance(balance);
+      } catch (err: any) {
+        if (err?.name !== 'AbortError') {
+          console.error('Failed to load USDC balance:', err);
+        }
+      }
+    };
+
+    loadBalance();
+
+    return () => {
+      abortController.abort();
+    };
+  }, [userAddress]);
+
+  const loadBalance = async () => {
+    // Invalidate cache to force fresh data after transactions
+    requestCache.invalidate(createCacheKey('usdc-balance', userAddress));
+    const balance = await balanceService.getUSDCBalance(userAddress);
+    setUsdcBalance(balance);
+  };
+
+  const formatBalance = (balance: bigint): string => {
+    const divisor = BigInt(10 ** USDC_DECIMALS);
+    const whole = balance / divisor;
+    const fraction = balance % divisor;
+
+    if (fraction === 0n) {
+      return whole.toString();
+    }
+
+    const fractionStr = fraction.toString().padStart(USDC_DECIMALS, '0');
+    // Remove trailing zeros but keep significant decimals
+    const trimmed = fractionStr.replace(/0+$/, '');
+    return `${whole}.${trimmed}`;
+  };
 
   const parseAmount = (value: string): bigint | null => {
     try {
@@ -43,6 +95,7 @@ export function VaultQuickActions({ userAddress, onSuccess }: VaultQuickActionsP
 
       setSuccess('Deposited successfully!');
       setAmount('');
+      await loadBalance();
       onSuccess();
     } catch (err) {
       console.error('Deposit error:', err);
@@ -68,6 +121,7 @@ export function VaultQuickActions({ userAddress, onSuccess }: VaultQuickActionsP
 
       setSuccess('Withdrawn successfully!');
       setAmount('');
+      await loadBalance();
       onSuccess();
     } catch (err) {
       console.error('Withdraw error:', err);
@@ -84,6 +138,16 @@ export function VaultQuickActions({ userAddress, onSuccess }: VaultQuickActionsP
       </h3>
 
       <div className="space-y-4">
+        {/* USDC Wallet Balance */}
+        <div className="p-4 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl border border-blue-100">
+          <div className="text-xs font-bold uppercase tracking-wide text-blue-600 mb-1">
+            USDC Wallet Balance
+          </div>
+          <div className="text-2xl font-black text-blue-700">
+            {formatBalance(usdcBalance)}
+          </div>
+        </div>
+
         <div>
           <label className="block text-xs font-bold uppercase tracking-wide text-gray-600 mb-2">
             Amount (USDC)

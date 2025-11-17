@@ -1,5 +1,5 @@
 import { Client as BlendizzardClient } from '../../../bunt/bindings/blendizzard/dist/index';
-import { BLENDIZZARD_CONTRACT, NETWORK_PASSPHRASE, RPC_URL } from '@/utils/constants';
+import { BLENDIZZARD_CONTRACT, NETWORK_PASSPHRASE, RPC_URL, DEFAULT_METHOD_OPTIONS } from '@/utils/constants';
 import { contract } from '@stellar/stellar-sdk';
 
 type ClientOptions = contract.ClientOptions;
@@ -24,7 +24,7 @@ export class BlendizzardService {
    */
   private createSigningClient(
     publicKey: string,
-    signer: { signTransaction: (xdr: string) => Promise<string>; signAuthEntry?: any }
+    signer: Pick<contract.ClientOptions, 'signTransaction' | 'signAuthEntry'>
   ): BlendizzardClient {
     const options: ClientOptions = {
       contractId: BLENDIZZARD_CONTRACT,
@@ -90,13 +90,13 @@ export class BlendizzardService {
   async selectFaction(
     playerAddress: string,
     factionId: number,
-    signer: { signTransaction: (xdr: string) => Promise<string>; signAuthEntry?: any }
+    signer: Pick<contract.ClientOptions, 'signTransaction' | 'signAuthEntry'>
   ) {
     const client = this.createSigningClient(playerAddress, signer);
     const tx = await client.select_faction({
       player: playerAddress,
       faction: factionId,
-    });
+    }, DEFAULT_METHOD_OPTIONS);
     const { result } = await tx.signAndSend();
     return result;
   }
@@ -112,7 +112,7 @@ export class BlendizzardService {
     player2: string,
     player1Wager: bigint,
     player2Wager: bigint,
-    signer: { signTransaction: (xdr: string) => Promise<string>; signAuthEntry?: any }
+    signer: Pick<contract.ClientOptions, 'signTransaction' | 'signAuthEntry'>
   ) {
     const client = this.createSigningClient(player1, signer);
     const tx = await client.start_game({
@@ -122,7 +122,7 @@ export class BlendizzardService {
       player2,
       player1_wager: player1Wager,
       player2_wager: player2Wager,
-    });
+    }, DEFAULT_METHOD_OPTIONS);
     const { result } = await tx.signAndSend();
     return result;
   }
@@ -134,15 +134,51 @@ export class BlendizzardService {
   async claimEpochReward(
     playerAddress: string,
     epochNumber: number,
-    signer: { signTransaction: (xdr: string) => Promise<string>; signAuthEntry?: any }
+    signer: Pick<contract.ClientOptions, 'signTransaction' | 'signAuthEntry'>
   ): Promise<bigint> {
-    const client = this.createSigningClient(playerAddress, signer);
-    const tx = await client.claim_epoch_reward({
-      player: playerAddress,
-      epoch: epochNumber,
-    });
-    const { result } = await tx.signAndSend();
-    return result;
+    try {
+      const client = this.createSigningClient(playerAddress, signer);
+      const tx = await client.claim_epoch_reward({
+        player: playerAddress,
+        epoch: epochNumber,
+      }, DEFAULT_METHOD_OPTIONS);
+
+      // Simulate to ensure proper footprint
+      await tx.simulate();
+
+      const sentTx = await tx.signAndSend();
+
+      // Check transaction status before accessing result
+      if (sentTx.getTransactionResponse?.status === 'FAILED') {
+        const errorMessage = this.extractTransactionError(sentTx.getTransactionResponse, 'claim epoch reward');
+        throw new Error(`Failed to claim epoch reward: ${errorMessage}`);
+      }
+
+      // Extract bigint from Result type
+      if (typeof sentTx.result === 'bigint') {
+        return sentTx.result;
+      }
+      // Handle Result<bigint, ErrorMessage> type
+      if (sentTx.result && typeof sentTx.result === 'object' && 'unwrap' in sentTx.result) {
+        return (sentTx.result as any).unwrap();
+      }
+      return BigInt(sentTx.result);
+    } catch (err) {
+      console.error('Claim epoch reward error:', err);
+
+      // Enhance error message with more context
+      if (err instanceof Error) {
+        if (err.message.includes('timeout')) {
+          throw new Error(`Transaction timed out after ${DEFAULT_METHOD_OPTIONS.timeoutInSeconds} seconds. The network may be congested. Please try again.`);
+        }
+        if (err.message.includes('Transaction simulation failed')) {
+          throw new Error(`Cannot claim rewards: ${err.message}`);
+        }
+        throw err;
+      }
+
+      throw new Error('Failed to claim epoch reward - unknown error occurred');
+    }
   }
 
   /**
@@ -154,7 +190,15 @@ export class BlendizzardService {
     epochNumber: number
   ): Promise<boolean> {
     try {
-      const tx = await this.baseClient.claim_epoch_reward({
+      // Create a client with publicKey for proper auth simulation
+      const client = new BlendizzardClient({
+        contractId: BLENDIZZARD_CONTRACT,
+        networkPassphrase: NETWORK_PASSPHRASE,
+        rpcUrl: RPC_URL,
+        publicKey: playerAddress,
+      });
+
+      const tx = await client.claim_epoch_reward({
         player: playerAddress,
         epoch: epochNumber,
       });
@@ -192,12 +236,72 @@ export class BlendizzardService {
    */
   async cycleEpoch(
     playerAddress: string,
-    signer: { signTransaction: (xdr: string) => Promise<string>; signAuthEntry?: any }
+    signer: Pick<contract.ClientOptions, 'signTransaction' | 'signAuthEntry'>
   ): Promise<number> {
     const client = this.createSigningClient(playerAddress, signer);
     const tx = await client.cycle_epoch();
-    const { result } = await tx.signAndSend();
-    return result;
+
+    // Simulate to ensure proper footprint
+    await tx.simulate();
+
+    try {
+      const sentTx = await tx.signAndSend();
+
+      // Check transaction status before accessing result
+      if (sentTx.getTransactionResponse?.status === 'FAILED') {
+        const errorMessage = this.extractTransactionError(sentTx.getTransactionResponse, 'cycle epoch');
+        throw new Error(`Failed to cycle epoch: ${errorMessage}`);
+      }
+
+      // Return the new epoch number
+      return Number(sentTx.result);
+    } catch (err) {
+      if (err instanceof Error && err.message.includes('Transaction failed!')) {
+        throw new Error('Failed to cycle epoch - transaction rejected. Check that epoch has ended and no active games exist.');
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Extract error message from failed transaction
+   */
+  private extractTransactionError(transactionResponse: any, operationName: string): string {
+    try {
+      console.error(`${operationName} transaction response:`, JSON.stringify(transactionResponse, null, 2));
+
+      // Check for diagnostic events
+      const diagnosticEvents = transactionResponse?.diagnosticEventsXdr ||
+                              transactionResponse?.diagnostic_events || [];
+
+      for (const event of diagnosticEvents) {
+        if (event?.topics) {
+          const topics = Array.isArray(event.topics) ? event.topics : [];
+          const hasErrorTopic = topics.some((topic: any) =>
+            topic?.symbol === 'error' || topic?.error
+          );
+
+          if (hasErrorTopic && event.data) {
+            if (typeof event.data === 'string') {
+              return event.data;
+            } else if (event.data.vec && Array.isArray(event.data.vec)) {
+              const messages = event.data.vec
+                .filter((item: any) => item?.string)
+                .map((item: any) => item.string);
+              if (messages.length > 0) {
+                return messages.join(': ');
+              }
+            }
+          }
+        }
+      }
+
+      const status = transactionResponse?.status || 'Unknown';
+      return `Transaction ${status}. Check console for details.`;
+    } catch (err) {
+      console.error('Failed to extract cycle error:', err);
+      return 'Unknown error occurred';
+    }
   }
 
   /**
