@@ -27,20 +27,20 @@ use crate::types::{
 /// Both amount and time multipliers use smooth piecewise curves that:
 /// - Rise smoothly from 1.0x to peak at target
 /// - Fall smoothly from peak back to 1.0x at maximum
-/// - Peak combined multiplier: 5.0x (each component: 2.236x)
+/// - Peak combined multiplier: 6.0x (each component: 2.449x)
 ///
 /// ## Amount Multiplier
-/// - Target: $1,000 → 2.236x (component peak)
-/// - Maximum: $100,000 → 1.0x
+/// - Target: $1,000 → 2.449x (component peak)
+/// - Maximum: $10,000 → 1.0x
 /// - Smooth cubic interpolation with zero derivatives at endpoints
 ///
 /// ## Time Multiplier
-/// - Target: 35 days (5 weeks) → 2.236x (component peak)
-/// - Maximum: 350 days (50 weeks) → 1.0x
+/// - Target: 35 days (5 weeks) → 2.449x (component peak)
+/// - Maximum: 245 days (35 weeks) → 1.0x
 /// - Smooth cubic interpolation with zero derivatives at endpoints
 ///
-/// **Combined at target**: 2.236 × 2.236 ≈ 5.0x
-/// **Result**: Target players ($1k, 35d) get 500 FP per $1
+/// **Combined at target**: 2.449 × 2.449 ≈ 6.0x
+/// **Result**: Target players ($1k, 35d) get 600 FP per $1
 ///
 /// # Arguments
 /// * `env` - Contract environment

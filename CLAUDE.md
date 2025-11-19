@@ -136,7 +136,7 @@ stellar contract deploy \
 2. **Epochs**: 4-day cycles (345,600 seconds)
 3. **Faction Points (fp)**: Player scoring mechanism with multipliers
    - Amount multiplier: Asymptotic curve toward $1,000 USD deposit
-   - Time multiplier: Asymptotic curve toward 30 days holding
+   - Time multiplier: Asymptotic curve toward 35 days holding
    - Reset penalty: >50% net withdrawal between epochs resets time to 0
    - **Cross-Epoch Model**: FP calculated once at first game of epoch based on vault balance
 

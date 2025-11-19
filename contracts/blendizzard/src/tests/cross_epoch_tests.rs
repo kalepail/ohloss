@@ -339,7 +339,7 @@ fn test_time_multiplier_persists_across_epochs() {
     );
 
     // With 8 days held, time multiplier should be significantly boosted
-    // (asymptotic toward 30 days max, but 8 days should give decent boost)
+    // (asymptotic toward 35 days target, but 8 days should give decent boost)
 }
 
 /// Test time multiplier reset after large withdrawal

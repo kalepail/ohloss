@@ -201,7 +201,7 @@ fn test_fp_with_zero_time_held() {
 
 /// Test FP calculation with maximum time held (60+ days)
 ///
-/// Player holds funds for longer than the asymptote (30 days).
+/// Player holds funds for longer than the asymptote (35 days).
 /// Time multiplier should approach maximum.
 #[test]
 fn test_fp_with_max_time_held() {
@@ -251,12 +251,12 @@ fn test_fp_with_max_time_held() {
 
     // With 60 days (past the 35-day target), time_mult starts declining
     // Smooth piecewise formula:
-    // - At 35 days: time_mult = 2.236x (peak)
-    // - At 60 days: time_mult ≈ 1.98x (slightly past peak, gentle decline)
+    // - At 35 days: time_mult = 2.449x (peak)
+    // - At 60 days: time_mult ≈ 2.2x (slightly past peak, gentle decline)
     //
-    // With $1000 deposit (at target): amount_mult = 2.236x (peak)
-    // FP = (1000 × 100) × 2.236 × 1.98 ≈ 442,000 FP
-    // After locking 100_0000000 FP wager: available_fp ≈ 342,000 FP
+    // With $1000 deposit (at target): amount_mult = 2.449x (peak)
+    // FP = (1000 × 100) × 2.449 × 2.2 ≈ 539,000 FP
+    // After locking 100_0000000 FP wager: available_fp ≈ 439,000 FP
 
     // Available FP (after locking wager) should still be substantial
     // Even past peak, the gentle decline keeps FP high
@@ -282,7 +282,7 @@ fn test_fp_multiplier_caps_at_maximum() {
     blendizzard.select_faction(&player2, &1);
 
     // Deposit way more than asymptote
-    let huge_amount = 100_000_0000000i128; // $100,000 (100x the $1000 asymptote)
+    let huge_amount = 100_000_0000000i128; // $100,000 (10x the $10,000 max)
     mock_vault.set_user_balance(&player1, &huge_amount);
     mock_vault.set_user_balance(&player2, &1000_0000000);
 
@@ -319,11 +319,11 @@ fn test_fp_multiplier_caps_at_maximum() {
 
     // FP = base × 100 × amount_mult × time_mult
     // With both way past peak (at maximums):
-    // - amount_mult: $100k >> $1k target → returns to 1.0x
-    // - time_mult: 100 days < 350 days max → ≈ 1.3x (on declining side)
+    // - amount_mult: $100k >> $10k max → returns to 1.0x
+    // - time_mult: 100 days < 245 days max → ≈ 1.6x (on declining side)
     //
-    // FP = (100,000 × 100) × 1.0 × 1.3 ≈ 13M FP
-    // After locking 1000 USDC wager: available_fp ≈ 13M FP
+    // FP = (100,000 × 100) × 1.0 × 1.6 ≈ 16M FP
+    // After locking 1000 USDC wager: available_fp ≈ 16M FP
 
     // available_fp is what remains after locking 1000 USDC wager
     // Verify FP is finite and reasonable
