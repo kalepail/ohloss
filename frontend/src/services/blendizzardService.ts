@@ -244,7 +244,7 @@ export class BlendizzardService {
     signer: Pick<contract.ClientOptions, 'signTransaction' | 'signAuthEntry'>
   ): Promise<number> {
     const client = this.createSigningClient(playerAddress, signer);
-    const tx = await client.cycle_epoch({}, DEFAULT_METHOD_OPTIONS);
+    const tx = await client.cycle_epoch(DEFAULT_METHOD_OPTIONS);
 
     // Simulate to ensure proper footprint
     await tx.simulate();

@@ -45,6 +45,10 @@ export async function signAndSendViaLaunchtube(
   // 2. CRITICAL FIX: Set transaction fee equal to resource fee before signing
   // Launchtube requires: tx.fee === resourceFee (with small tolerance of 201 stroops)
   // Reference: https://github.com/stellar/launchtube/blob/main/src/api/launch.ts#L232-235
+  if (!tx.built) {
+    throw new Error('Transaction must be built before setting fee. This should not happen after simulate().');
+  }
+
   const resourceFee = tx.simulationData.transactionData.resourceFee().toString();
 
   // Rebuild the transaction with the fee set to exactly the resource fee
