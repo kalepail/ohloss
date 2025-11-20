@@ -71,12 +71,12 @@ export const BLND_DECIMALS = 7;
 // Transaction settings
 export const DEFAULT_TX_TIMEOUT = 300; // 5 minutes for single-sig
 export const MULTI_SIG_TX_TIMEOUT = 600; // 10 minutes for multi-sig
-// export const DEFAULT_FEE = '100000'; // Base fee in stroops
+export const DEFAULT_FEE = '100000'; // Base fee in stroops
 
 // Default options for all contract method calls
 // Matches pattern from bunt/e2e-game.ts
 export const DEFAULT_METHOD_OPTIONS = {
-  // fee: 100000, // Higher fee for mainnet (100,000 stroops = 0.01 XLM)
+  fee: 0, // 100000, // Higher fee for mainnet (100,000 stroops = 0.01 XLM)
   timeoutInSeconds: 30,
 } as const;
 
