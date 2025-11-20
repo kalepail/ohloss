@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
 import { useWalletStore } from '@/store/walletSlice';
 import { walletService } from '@/services/walletService';
 import { devWalletService, DevWalletService } from '@/services/devWalletService';
@@ -20,42 +20,6 @@ export function useWallet() {
     setError,
     disconnect: storeDisconnect,
   } = useWalletStore();
-
-  /**
-   * Attempt to reconnect wallet on mount (if session exists)
-   */
-  useEffect(() => {
-    const reconnect = async () => {
-      if (publicKey && walletId && walletType === 'wallet') {
-        try {
-          // Try to reconnect with the saved wallet ID
-          const address = await walletService.connectWithWalletId(walletId);
-
-          // Verify the address matches (wallet might have switched accounts)
-          if (address !== publicKey) {
-            console.warn('Wallet address changed, updating store');
-            setWallet(address, walletId, 'wallet');
-          }
-
-          const { network: net, networkPassphrase: pass } = walletService.getNetwork();
-          setNetwork(net, pass);
-        } catch (err) {
-          console.warn('Failed to reconnect wallet, clearing session:', err);
-          storeDisconnect();
-        }
-      } else if (publicKey && walletType === 'dev') {
-        // Dev wallet doesn't need reconnection, just verify it's still valid
-        try {
-          devWalletService.getPublicKey();
-        } catch (err) {
-          console.warn('Dev wallet session invalid, clearing:', err);
-          storeDisconnect();
-        }
-      }
-    };
-
-    reconnect();
-  }, []); // Only run on mount
 
   /**
    * Connect to a wallet using the modal
@@ -161,6 +125,13 @@ export function useWallet() {
     return DevWalletService.isDevModeAvailable();
   }, []);
 
+  /**
+   * Check if a specific dev player is available
+   */
+  const isDevPlayerAvailable = useCallback((playerNumber: 1 | 2) => {
+    return DevWalletService.isPlayerAvailable(playerNumber);
+  }, []);
+
   return {
     // State
     publicKey,
@@ -179,5 +150,6 @@ export function useWallet() {
     signTransaction,
     getContractSigner,
     isDevModeAvailable,
+    isDevPlayerAvailable,
   };
 }

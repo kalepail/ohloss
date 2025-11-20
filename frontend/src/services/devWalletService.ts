@@ -64,8 +64,19 @@ export class DevWalletService {
    */
   static isDevModeAvailable(): boolean {
     return !!(
-      import.meta.env.VITE_DEV_PLAYER1_SECRET && import.meta.env.VITE_DEV_PLAYER2_SECRET
+      import.meta.env.VITE_DEV_PLAYER1_SECRET || import.meta.env.VITE_DEV_PLAYER2_SECRET
     );
+  }
+
+  /**
+   * Check if a specific dev player is available
+   */
+  static isPlayerAvailable(playerNumber: 1 | 2): boolean {
+    const secretKey =
+      playerNumber === 1
+        ? import.meta.env.VITE_DEV_PLAYER1_SECRET
+        : import.meta.env.VITE_DEV_PLAYER2_SECRET;
+    return !!secretKey;
   }
 
   /**

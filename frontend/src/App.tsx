@@ -3,7 +3,8 @@ import { Dashboard } from '@/components/Dashboard';
 import { Wallet, TestTube, AlertCircle } from 'lucide-react';
 
 function WalletSelection() {
-  const { connect, connectDev, isConnecting, error, isDevModeAvailable } = useWallet();
+  const { connect, connectDev, isConnecting, error, isDevModeAvailable, isDevPlayerAvailable } =
+    useWallet();
 
   const handleWalletConnect = async () => {
     try {
@@ -23,6 +24,8 @@ function WalletSelection() {
   };
 
   const showDevMode = isDevModeAvailable();
+  const player1Available = isDevPlayerAvailable(1);
+  const player2Available = isDevPlayerAvailable(2);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 flex items-center justify-center p-6 relative overflow-hidden">
@@ -100,26 +103,32 @@ function WalletSelection() {
                 Use pre-configured test wallets for development
               </p>
 
-              <div className="grid grid-cols-2 gap-6">
-                <button
-                  onClick={() => handleDevConnect(1)}
-                  disabled={isConnecting}
-                  className="p-8 rounded-2xl border-2 border-purple-200 hover:border-purple-400 bg-gradient-to-br from-purple-50 to-pink-50 hover:from-purple-100 hover:to-pink-100 transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <div className="text-5xl mb-4">👤</div>
-                  <h3 className="font-black text-xl text-gray-900 mb-2">Player 1</h3>
-                  <div className="text-xs font-semibold text-gray-600">Dev Test Account</div>
-                </button>
+              <div
+                className={`grid gap-6 ${player1Available && player2Available ? 'grid-cols-2' : 'grid-cols-1 max-w-md mx-auto'}`}
+              >
+                {player1Available && (
+                  <button
+                    onClick={() => handleDevConnect(1)}
+                    disabled={isConnecting}
+                    className="p-8 rounded-2xl border-2 border-purple-200 hover:border-purple-400 bg-gradient-to-br from-purple-50 to-pink-50 hover:from-purple-100 hover:to-pink-100 transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <div className="text-5xl mb-4">👤</div>
+                    <h3 className="font-black text-xl text-gray-900 mb-2">Player 1</h3>
+                    <div className="text-xs font-semibold text-gray-600">Dev Test Account</div>
+                  </button>
+                )}
 
-                <button
-                  onClick={() => handleDevConnect(2)}
-                  disabled={isConnecting}
-                  className="p-8 rounded-2xl border-2 border-purple-200 hover:border-purple-400 bg-gradient-to-br from-purple-50 to-pink-50 hover:from-purple-100 hover:to-pink-100 transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <div className="text-5xl mb-4">👥</div>
-                  <h3 className="font-black text-xl text-gray-900 mb-2">Player 2</h3>
-                  <div className="text-xs font-semibold text-gray-600">Dev Test Account</div>
-                </button>
+                {player2Available && (
+                  <button
+                    onClick={() => handleDevConnect(2)}
+                    disabled={isConnecting}
+                    className="p-8 rounded-2xl border-2 border-purple-200 hover:border-purple-400 bg-gradient-to-br from-purple-50 to-pink-50 hover:from-purple-100 hover:to-pink-100 transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <div className="text-5xl mb-4">👥</div>
+                    <h3 className="font-black text-xl text-gray-900 mb-2">Player 2</h3>
+                    <div className="text-xs font-semibold text-gray-600">Dev Test Account</div>
+                  </button>
+                )}
               </div>
             </div>
           </>

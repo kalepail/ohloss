@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 
 export interface WalletState {
   // Wallet connection
@@ -38,83 +37,55 @@ const initialState = {
   error: null,
 };
 
-export const useWalletStore = create<WalletState>()(
-  persist(
-    (set) => ({
-      ...initialState,
+export const useWalletStore = create<WalletState>()((set) => ({
+  ...initialState,
 
-      setWallet: (publicKey, walletId, walletType) =>
-        set({
-          publicKey,
-          walletId,
-          walletType,
-          isConnected: true,
-          isConnecting: false,
-          error: null,
-        }),
-
-      setPublicKey: (publicKey) =>
-        set({
-          publicKey,
-          isConnected: true,
-          isConnecting: false,
-          error: null,
-        }),
-
-      setConnected: (connected) =>
-        set({
-          isConnected: connected,
-          isConnecting: false,
-        }),
-
-      setConnecting: (connecting) =>
-        set({
-          isConnecting: connecting,
-          error: null,
-        }),
-
-      setNetwork: (network, networkPassphrase) =>
-        set({
-          network,
-          networkPassphrase,
-        }),
-
-      setError: (error) =>
-        set({
-          error,
-          isConnecting: false,
-        }),
-
-      disconnect: () =>
-        set({
-          ...initialState,
-        }),
-
-      reset: () => set(initialState),
+  setWallet: (publicKey, walletId, walletType) =>
+    set({
+      publicKey,
+      walletId,
+      walletType,
+      isConnected: true,
+      isConnecting: false,
+      error: null,
     }),
-    {
-      name: 'blendizzard-wallet',
-      // Use sessionStorage instead of localStorage
-      storage: {
-        getItem: (name) => {
-          const str = sessionStorage.getItem(name);
-          return str ? JSON.parse(str) : null;
-        },
-        setItem: (name, value) => {
-          sessionStorage.setItem(name, JSON.stringify(value));
-        },
-        removeItem: (name) => {
-          sessionStorage.removeItem(name);
-        },
-      },
-      partialize: (state) => ({
-        // Only persist these fields
-        publicKey: state.publicKey,
-        walletId: state.walletId,
-        walletType: state.walletType,
-        network: state.network,
-        networkPassphrase: state.networkPassphrase,
-      }),
-    }
-  )
-);
+
+  setPublicKey: (publicKey) =>
+    set({
+      publicKey,
+      isConnected: true,
+      isConnecting: false,
+      error: null,
+    }),
+
+  setConnected: (connected) =>
+    set({
+      isConnected: connected,
+      isConnecting: false,
+    }),
+
+  setConnecting: (connecting) =>
+    set({
+      isConnecting: connecting,
+      error: null,
+    }),
+
+  setNetwork: (network, networkPassphrase) =>
+    set({
+      network,
+      networkPassphrase,
+    }),
+
+  setError: (error) =>
+    set({
+      error,
+      isConnecting: false,
+    }),
+
+  disconnect: () =>
+    set({
+      ...initialState,
+    }),
+
+  reset: () => set(initialState),
+}));
