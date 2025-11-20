@@ -1,7 +1,7 @@
-import { rpc, contract, TransactionBuilder, Transaction } from '@stellar/stellar-sdk';
+import { rpc, contract, TransactionBuilder } from '@stellar/stellar-sdk';
 import { launchtubeService } from '@/services/launchtubeService';
 import { useTurnstileStore } from '@/store/turnstileSlice';
-import { NETWORK_PASSPHRASE, RPC_URL } from './constants';
+import { RPC_URL } from './constants';
 
 /**
  * AssembledTransaction type from stellar-sdk
@@ -42,29 +42,43 @@ export async function signAndSendViaLaunchtube(
     await tx.simulate();
   }
 
-  // 2. CRITICAL FIX: Set transaction fee equal to resource fee before signing
+  // 2. CRITICAL FIX: Rebuild transaction with correct fee BEFORE signing
   // Launchtube requires: tx.fee === resourceFee (with small tolerance of 201 stroops)
-  // Reference: https://github.com/stellar/launchtube/blob/main/src/api/launch.ts#L232-235
+  // We rebuild and sign manually instead of using tx.sign() to avoid breaking internal state
+
   if (!tx.built) {
-    throw new Error('Transaction must be built before setting fee. This should not happen after simulate().');
+    throw new Error('Transaction must be built before signing');
   }
 
   const resourceFee = tx.simulationData.transactionData.resourceFee().toString();
 
-  // Rebuild the transaction with the fee set to exactly the resource fee
-  tx.built = TransactionBuilder.cloneFrom(new Transaction(tx.built.toXDR(), NETWORK_PASSPHRASE), {
+  // Rebuild with correct fee (matching pattern from AssembledTransaction.sign())
+  const correctedTx = TransactionBuilder.cloneFrom(tx.built, {
     fee: resourceFee,
     sorobanData: tx.simulationData.transactionData,
-  }).build();
+  })
+    .setTimeout(timeoutSeconds)
+    .build();
 
-  // 3. Sign the transaction
-  await tx.sign();
-
-  // 4. Get the signed XDR from the signed transaction
-  if (!tx.signed) {
-    throw new Error('Transaction not signed. The sign() method may have failed.');
+  // 3. Sign the corrected transaction manually (bypassing tx.sign())
+  if (!tx.options.signTransaction) {
+    throw new Error('signTransaction function not available in transaction options');
   }
-  const signedXdr = tx.signed.toXDR();
+
+  const signOpts = {
+    networkPassphrase: tx.options.networkPassphrase,
+  };
+
+  const { signedTxXdr, error } = await tx.options.signTransaction(
+    correctedTx.toXDR(),
+    signOpts
+  );
+
+  if (error) {
+    throw new Error(`Transaction signing failed: ${error.message}`);
+  }
+
+  const signedXdr = signedTxXdr;
 
   // 4. Get Turnstile token from store
   const turnstileToken = useTurnstileStore.getState().token || undefined;
