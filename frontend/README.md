@@ -15,12 +15,13 @@ A React + TypeScript frontend for the Blendizzard faction-based competitive gami
 
 - **React 19** - UI framework
 - **TypeScript** - Type safety
-- **Vite** - Build tool (using rolldown-vite)
-- **Tailwind CSS** - Styling with glassmorphism
+- **Vite 7** - Build tool
+- **Tailwind CSS 4** - Styling with glassmorphism
 - **Zustand** - State management
 - **React Query** - Server state management
 - **Stellar SDK** - Blockchain interactions
 - **Stellar Wallets Kit** - Multi-wallet support
+- **React Router** - Client-side routing
 
 ## Getting Started
 
@@ -41,7 +42,7 @@ bun dev
 
 ### Environment Variables
 
-The `.env` file is already configured with mainnet contract addresses. See `.env.example` for the template.
+Create a `.env` file with contract addresses. See `.env.example` for the template.
 
 ## Project Structure
 
@@ -81,13 +82,9 @@ bun run lint
 bunx prettier --write "src/**/*.{ts,tsx}"
 ```
 
-## Contract Addresses (Mainnet)
+## Contract Addresses
 
-- **Blendizzard**: `CAHPLVEDW2HWY2EOTCTECDK5ZRHAB5FLER3WGHQ5OPFMBMMFJSTBRJZU`
-- **Number Guess Game**: `CDB6IODG5BNNVILLJXBXYZVR7NP4HDO2NL7WALWIXGIDMA6VY4V75CEX`
-- **Fee Vault v2**: `CBBY53VYJSMAWCBZZ7BHJZ5XSZNJUS4ZE6Q4RN7TKZGHPYHMEE467W7Y`
-- **USDC Token**: `CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75`
-- **BLND Token**: `CD25MNVTZDL4Y3XBCPCJXGXATV5WUHHOWMYFF4YBEGU5FCPGMYTVG5JY`
+See `CHITSHEET.md` in the root directory for deployed contract addresses.
 
 ## Key Features
 
@@ -104,26 +101,11 @@ Three factions compete each epoch:
 FP are earned by depositing USDC into the fee-vault-v2 contract. The amount of FP is calculated with multipliers:
 
 - **Amount Multiplier**: Asymptotic curve toward $1,000 deposit
-- **Time Multiplier**: Asymptotic curve toward 30 days holding
+- **Time Multiplier**: Asymptotic curve toward 35 days holding
 
 ### Multi-Signature Game Creation
 
-Creating a game requires multiple signers for security. The frontend handles the multi-sig flow.
-
-## Next Steps
-
-See [TODO.md](./TODO.md) for the complete implementation checklist.
-
-Current status:
-- ✅ Project setup and dependencies
-- ✅ Tailwind CSS configuration
-- ✅ Environment variables (mainnet)
-- ✅ Folder structure
-- ✅ Base utilities and types
-- 🚧 Contract TypeScript bindings (pending)
-- 🚧 Wallet integration (pending)
-- 🚧 Contract services layer (pending)
-- 🚧 UI components (pending)
+Game creation requires authorization from both players. The frontend handles the multi-sig transaction flow using Stellar SDK.
 
 ## License
 

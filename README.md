@@ -15,9 +15,9 @@ Blendizzard creates a gamified DeFi experience where:
 ## Key Features
 
 ### Core Mechanics
-- **Deposit/Withdrawal**: Integrate with fee-vault-v2 for yield generation
-- **Faction Points System**: Dynamic multipliers based on amount ($1,000 asymptote) and time (30-day asymptote)
-- **Game Sessions**: Wager FP in whitelisted game contracts with ZK-proof verification
+- **Deposit/Withdrawal**: Players interact directly with fee-vault-v2 for yield generation
+- **Faction Points System**: Dynamic multipliers based on amount ($1,000 asymptote) and time (35-day asymptote)
+- **Game Sessions**: Wager FP in whitelisted game contracts with oracle verification
 - **Epoch System**: 4-day cycles with automatic yield distribution to winning faction
 - **Reward Claims**: Proportional USDC rewards based on FP contribution
 
@@ -55,11 +55,15 @@ blendizzard/
 │       │   └── tests/              # Comprehensive test suite
 │       └── Cargo.toml
 ├── bunt/                           # TypeScript integration tests (Bun runtime)
+├── frontend/                       # React web application
+├── fp_simulations/                 # Python multiplier simulations
 ├── docs/
 │   ├── PLAN.md                     # Detailed technical specification
 │   ├── SECURITY.md                 # Security analysis and best practices
 │   ├── PRODUCTION_READINESS.md     # Production deployment checklist
-│   └── CLAUDE.md                   # AI assistant development guide
+│   ├── OG_PLAN.md                  # Original requirements
+│   └── SUGGESTED_ADDITIONS.md      # Future enhancements
+├── CLAUDE.md                       # AI assistant development guide
 ├── Cargo.toml                      # Workspace configuration
 └── README.md                       # This file
 ```
@@ -151,8 +155,9 @@ Blendizzard integrates with three external Soroban contracts:
 
 1. **fee-vault-v2** ([script3/fee-vault-v2](https://github.com/script3/fee-vault-v2))
    - Yield-generating vault for BLND token
-   - Blendizzard acts as admin to withdraw accumulated fees
-   - Methods: `deposit()`, `withdraw()`, `admin_withdraw()`
+   - Players interact directly for deposits/withdrawals
+   - Blendizzard queries balances and acts as admin to withdraw accumulated fees
+   - Methods: `deposit()`, `withdraw()`, `get_underlying_tokens()`, `admin_withdraw()`
 
 2. **Soroswap Router** ([soroswap/core](https://github.com/soroswap/core))
    - DEX for BLND → USDC conversion during epoch cycling
@@ -179,22 +184,22 @@ multiplier = 1.0 + (amount_usd / (amount_usd + $1000))
 - $3,000 → ~1.75x
 - $9,000 → ~1.9x
 
-**Time Multiplier**: Asymptotic curve toward 30 days
+**Time Multiplier**: Asymptotic curve toward 35 days
 ```
-multiplier = 1.0 + (time_held_seconds / (time_held_seconds + 30_days))
+multiplier = 1.0 + (time_held_seconds / (time_held_seconds + 35_days))
 ```
 - 0 days → 1.0x
-- 30 days → ~1.5x
-- 60 days → ~1.67x
+- 35 days → ~1.5x
+- 70 days → ~1.67x
 
 **Reset Penalty**: Withdrawing >50% of epoch balance resets timestamp to 0, dropping time multiplier back to 1.0x.
 
 ### Game Flow
 
-1. **Deposit**: Player deposits USDC into fee-vault (earns BLND yield)
+1. **Deposit**: Player deposits USDC directly into fee-vault-v2 (earns BLND yield)
 2. **Select Faction**: Choose WholeNoodle, PointyStick, or SpecialRock
-3. **Start Game**: Wager FP against another player (faction locks on first game)
-4. **Play**: Off-chain gameplay with ZK-proof generation (client-side for MVP)
+3. **Start Game**: Wager FP against another player (faction locks on first game of epoch)
+4. **Play**: Off-chain gameplay with oracle verification
 5. **End Game**: Winner gains FP from loser, contributes to faction standings
 6. **Epoch End**: After 4 days, winning faction shares USDC rewards proportionally
 7. **Claim Rewards**: Players claim their share of the reward pool
