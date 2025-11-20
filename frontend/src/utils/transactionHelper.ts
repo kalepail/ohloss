@@ -1,4 +1,4 @@
-import { rpc, contract } from '@stellar/stellar-sdk';
+import { rpc, contract, TransactionBuilder } from '@stellar/stellar-sdk';
 import { launchtubeService } from '@/services/launchtubeService';
 import { useTurnstileStore } from '@/store/turnstileSlice';
 import { RPC_URL } from './constants';
@@ -42,10 +42,21 @@ export async function signAndSendViaLaunchtube(
     await tx.simulate();
   }
 
-  // 2. Sign the transaction
+  // 2. CRITICAL FIX: Set transaction fee equal to resource fee before signing
+  // Launchtube requires: tx.fee === resourceFee (with small tolerance of 201 stroops)
+  // Reference: https://github.com/stellar/launchtube/blob/main/src/api/launch.ts#L232-235
+  const resourceFee = tx.simulationData.transactionData.resourceFee().toString();
+
+  // Rebuild the transaction with the fee set to exactly the resource fee
+  tx.built = TransactionBuilder.cloneFrom(tx.built, {
+    fee: resourceFee,
+    sorobanData: tx.simulationData.transactionData,
+  }).build();
+
+  // 3. Sign the transaction
   await tx.sign();
 
-  // 3. Get the signed XDR from the signed transaction
+  // 4. Get the signed XDR from the signed transaction
   if (!tx.signed) {
     throw new Error('Transaction not signed. The sign() method may have failed.');
   }
