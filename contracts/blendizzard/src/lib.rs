@@ -515,12 +515,12 @@ impl CustomAccountInterface for Blendizzard {
 
     fn __check_auth(
         env: Env,
-        _signature_payload: Hash<32>,
+        signature_payload: Hash<32>,
         _signature: Option<Val>,
         _auth_contexts: Vec<Context>,
     ) -> Result<(), Error> {
         let admin = storage::get_admin(&env);
-        admin.require_auth_for_args(vec![&env]); // TODO, make this more secure by checking the signature payload and signature
+        admin.require_auth_for_args(vec![&env, signature_payload.to_val()]);
         Ok(())
     }
 }

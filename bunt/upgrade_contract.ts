@@ -1,4 +1,4 @@
-// Set admin when the current admin is a G-address and you're trying to make a C-address the admin
+// Upgrade contract to the new WASM hash
 
 import { Address, authorizeInvocation, Keypair, nativeToScVal, Networks, Operation, TransactionBuilder, xdr } from "@stellar/stellar-sdk";
 import { DEFAULT_TIMEOUT } from "@stellar/stellar-sdk/contract";
@@ -27,9 +27,9 @@ const tx = new TransactionBuilder(acct, {
 })
 .addOperation(Operation.invokeContractFunction({
     contract: feeVaultID,
-    function: 'set_admin',
+    function: 'upgrade_contract',
     args: [
-        Address.fromString(contractID).toScVal(),
+        xdr.ScVal.scvBytes(Buffer.from('9c1d379661acb3cf357a8a3b8354a20d24a876f56e672b7095e8fbe89f697081', 'hex'))
     ]
 }))
 .setTimeout(0)
