@@ -108,26 +108,33 @@ export class WalletService {
   /**
    * Sign a transaction XDR
    * Returns { signedTxXdr: string, signerAddress?: string }
+   *
+   * @param xdr - Transaction XDR to sign
+   * @param address - Optional address to sign with (prioritized over connectedAddress)
    */
-  async signTransaction(xdr: string) {
+  async signTransaction(xdr: string, address?: string) {
     this.ensureInitialized();
 
     if (!this.selectedWalletId) {
       throw new Error('Wallet not connected. Please connect first.');
     }
 
-    if (!this.connectedAddress) {
-      throw new Error('No address connected. Please reconnect your wallet.');
+    // Use provided address or fall back to connectedAddress
+    const signingAddress = address || this.connectedAddress;
+
+    if (!signingAddress) {
+      throw new Error('No address provided. Please reconnect your wallet.');
     }
 
     try {
       // Explicitly set the wallet to ensure we use the site-connected wallet
       StellarWalletsKit.setWallet(this.selectedWalletId);
 
-      // Use the stored connected address - this is the address the user explicitly connected with
+      // Use the provided address (from store/opts) or the stored connected address
+      // This ensures we sign with the correct address even if the extension wallet switches
       return await StellarWalletsKit.signTransaction(xdr, {
         networkPassphrase: NETWORK_PASSPHRASE,
-        address: this.connectedAddress,
+        address: signingAddress,
       });
     } catch (error) {
       console.error('Error signing transaction:', error);
@@ -140,27 +147,34 @@ export class WalletService {
    * Returns { signedAuthEntry: string, signerAddress?: string }
    *
    * NOTE: stellar-wallets-kit v2 already converts Freighter's Buffer response to base64 string
+   *
+   * @param authEntry - Auth entry to sign
+   * @param address - Optional address to sign with (prioritized over connectedAddress)
    */
-  async signAuthEntry(authEntry: string) {
+  async signAuthEntry(authEntry: string, address?: string) {
     this.ensureInitialized();
 
     if (!this.selectedWalletId) {
       throw new Error('Wallet not connected. Please connect first.');
     }
 
-    if (!this.connectedAddress) {
-      throw new Error('No address connected. Please reconnect your wallet.');
+    // Use provided address or fall back to connectedAddress
+    const signingAddress = address || this.connectedAddress;
+
+    if (!signingAddress) {
+      throw new Error('No address provided. Please reconnect your wallet.');
     }
 
     try {
       // Explicitly set the wallet to ensure we use the site-connected wallet
       StellarWalletsKit.setWallet(this.selectedWalletId);
 
-      // Use the stored connected address - this is critical for auth entries
-      // to ensure we sign with the exact address the user connected with
+      // Use the provided address (from store/opts) or the stored connected address
+      // This is critical for auth entries to ensure we sign with the exact address
+      // the user connected with, even if the extension wallet switches accounts
       const result = await StellarWalletsKit.signAuthEntry(authEntry, {
         networkPassphrase: NETWORK_PASSPHRASE,
-        address: this.connectedAddress,
+        address: signingAddress,
       });
 
       return {

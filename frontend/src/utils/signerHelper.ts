@@ -6,21 +6,25 @@ import { devWalletService } from '@/services/devWalletService';
  * Get a signer for wallet-connected users
  * Returns a ContractSigner that uses the Stellar Wallets Kit
  */
-export function getWalletSigner(_publicKey: string): ContractSigner {
+export function getWalletSigner(publicKey: string): ContractSigner {
   return {
-    signTransaction: async (xdr: string, _opts?: {
+    signTransaction: async (xdr: string, opts?: {
       networkPassphrase?: string;
       address?: string;
       submit?: boolean;
       submitUrl?: string;
     }) => {
-      return await walletService.signTransaction(xdr);
+      // Pass through the address from opts, falling back to the publicKey from store
+      const signingAddress = opts?.address || publicKey;
+      return await walletService.signTransaction(xdr, signingAddress);
     },
-    signAuthEntry: async (authEntry: string, _opts?: {
+    signAuthEntry: async (authEntry: string, opts?: {
       networkPassphrase?: string;
       address?: string;
     }) => {
-      const result = await walletService.signAuthEntry(authEntry);
+      // Pass through the address from opts, falling back to the publicKey from store
+      const signingAddress = opts?.address || publicKey;
+      const result = await walletService.signAuthEntry(authEntry, signingAddress);
 
       return {
         ...result,
