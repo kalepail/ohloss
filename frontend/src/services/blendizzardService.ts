@@ -1,4 +1,4 @@
-import { Client as BlendizzardClient } from '../../../bunt/bindings/blendizzard/dist/index';
+import { Client as BlendizzardClient } from 'blendizzard';
 import { BLENDIZZARD_CONTRACT, NETWORK_PASSPHRASE, RPC_URL, DEFAULT_METHOD_OPTIONS } from '@/utils/constants';
 import { contract } from '@stellar/stellar-sdk';
 

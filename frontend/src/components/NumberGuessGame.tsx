@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { numberGuessService } from '@/services/numberGuessService';
 import { requestCache, createCacheKey } from '@/utils/requestCache';
 import { useWallet } from '@/hooks/useWallet';
-import type { Game } from '../../../bunt/bindings/number-guess/dist/index';
+import type { Game } from 'number-guess';
 
 interface NumberGuessGameProps {
   userAddress: string;

@@ -1,4 +1,4 @@
-import { Client as FeeVaultClient } from '../../../bunt/bindings/fee-vault/dist/index';
+import { Client as FeeVaultClient } from 'fee-vault';
 import { VAULT_CONTRACT, NETWORK_PASSPHRASE, RPC_URL, DEFAULT_METHOD_OPTIONS } from '@/utils/constants';
 import { contract } from '@stellar/stellar-sdk';
 
