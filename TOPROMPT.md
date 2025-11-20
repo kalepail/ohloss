@@ -1,9 +1,7 @@
-* add Launchtube as the tx submission endpoint
-* players can play themselves, this is dumb? The question is is it dangerous
-
 MAYBE
 * Consider having loser fp added to winners faction_fp
 * Consider having loser fp added to winners available_fp
+* players can play themselves, this is dumb? The question is is it dangerous
 
 SOMEDAY
 * Use OZ Relayer to submit transactions

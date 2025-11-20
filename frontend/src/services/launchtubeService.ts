@@ -61,13 +61,6 @@ export class LaunchtubeService {
     signedTxXdr: string,
     turnstileToken?: string
   ): Promise<LaunchtubeResponse> {
-    if (!this.jwt) {
-      console.warn('LAUNCHTUBE_JWT not configured. Falling back to direct RPC submission.');
-      throw new Error(
-        'Launchtube JWT not configured. Please set VITE_LAUNCHTUBE_JWT environment variable.'
-      );
-    }
-
     try {
       // Create FormData with the transaction XDR
       const formData = new FormData();
@@ -146,7 +139,7 @@ export class LaunchtubeService {
    * Check if Launchtube is properly configured
    */
   isConfigured(): boolean {
-    return !!this.jwt;
+    return !!this.baseUrl;
   }
 
   /**
