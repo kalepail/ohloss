@@ -158,6 +158,9 @@ export function NumberGuessGame({
       if (!player2Address) {
         throw new Error('Enter Player 2 address');
       }
+      if (player2Address === userAddress) {
+        throw new Error('Cannot play against yourself. Please enter a different Player 2 address.');
+      }
 
       const signer = getContractSigner();
 
@@ -257,6 +260,11 @@ export function NumberGuessGame({
       // Verify the user is one of the players
       if (xdrDetails.player1 !== userAddress && xdrDetails.player2 !== userAddress) {
         throw new Error('You are not one of the players in this game');
+      }
+
+      // Prevent self-play
+      if (xdrDetails.player1 === xdrDetails.player2) {
+        throw new Error('Invalid game: Player 1 and Player 2 cannot be the same address');
       }
 
       const signer = getContractSigner();
@@ -480,18 +488,8 @@ export function NumberGuessGame({
 
   const isPlayer1 = gameState && gameState.player1 === userAddress;
   const isPlayer2 = gameState && gameState.player2 === userAddress;
-  const isSelfPlay = isPlayer1 && isPlayer2; // Same address playing both sides
-
-  // In self-play mode, hasGuessed is only true when BOTH guesses are made
-  // Otherwise, check the appropriate role
-  const hasGuessed = isSelfPlay
-    ? (gameState?.player1_guess !== null && gameState?.player1_guess !== undefined) &&
-      (gameState?.player2_guess !== null && gameState?.player2_guess !== undefined)
-    : isPlayer1
-      ? gameState?.player1_guess !== null && gameState?.player1_guess !== undefined
-      : isPlayer2
-        ? gameState?.player2_guess !== null && gameState?.player2_guess !== undefined
-        : false;
+  const hasGuessed = isPlayer1 ? gameState?.player1_guess !== null && gameState?.player1_guess !== undefined :
+                     isPlayer2 ? gameState?.player2_guess !== null && gameState?.player2_guess !== undefined : false;
 
   return (
     <div className="bg-white/70 backdrop-blur-xl rounded-2xl p-8 shadow-xl border-2 border-purple-200">
@@ -606,9 +604,18 @@ export function NumberGuessGame({
                 type="text"
                 value={player2Address}
                 onChange={(e) => setPlayer2Address(e.target.value)}
-                placeholder="GABC..."
-                className="w-full px-4 py-3 rounded-xl bg-white border-2 border-gray-200 focus:outline-none focus:border-purple-400 focus:ring-4 focus:ring-purple-100 text-sm font-medium"
+                placeholder="GABC... (must be different from you)"
+                className={`w-full px-4 py-3 rounded-xl bg-white border-2 focus:outline-none focus:ring-4 text-sm font-medium ${
+                  player2Address && player2Address === userAddress
+                    ? 'border-red-400 focus:border-red-400 focus:ring-red-100'
+                    : 'border-gray-200 focus:border-purple-400 focus:ring-purple-100'
+                }`}
               />
+              {player2Address && player2Address === userAddress && (
+                <p className="text-xs text-red-600 font-semibold mt-1">
+                  ⚠️ Cannot play against yourself
+                </p>
+              )}
             </div>
           </div>
 
@@ -810,20 +817,6 @@ export function NumberGuessGame({
       {/* GUESS PHASE */}
       {gamePhase === 'guess' && gameState && (
         <div className="space-y-6">
-          {isSelfPlay && (
-            <div className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-200 rounded-xl">
-              <p className="text-sm font-semibold text-purple-700">
-                🎭 Self-Play Mode: You are playing against yourself!
-              </p>
-              <p className="text-xs text-gray-600 mt-1">
-                {gameState.player1_guess === null && gameState.player2_guess === null
-                  ? 'Make your first guess (will be assigned to Player 1)'
-                  : gameState.player1_guess !== null && gameState.player2_guess === null
-                    ? 'First guess made! Now make your second guess (will be assigned to Player 2)'
-                    : 'Both guesses made! Waiting to reveal winner...'}
-              </p>
-            </div>
-          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className={`p-5 rounded-xl border-2 ${isPlayer1 ? 'border-purple-400 bg-gradient-to-br from-purple-50 to-pink-50 shadow-lg' : 'border-gray-200 bg-white'}`}>
               <div className="text-xs font-bold uppercase tracking-wide text-gray-600 mb-1">Player 1</div>
