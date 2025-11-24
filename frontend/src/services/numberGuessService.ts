@@ -3,7 +3,7 @@ import { GAME_CONTRACT, NETWORK_PASSPHRASE, RPC_URL, DEFAULT_METHOD_OPTIONS, DEF
 import { contract, TransactionBuilder, StrKey, xdr, Address, authorizeEntry } from '@stellar/stellar-sdk';
 import { signAndSendViaLaunchtube } from '@/utils/transactionHelper';
 import { calculateValidUntilLedger } from '@/utils/ledgerUtils';
-import { extractSignedAuthEntry, injectSignedAuthEntry } from '@/utils/authEntryUtils';
+import { injectSignedAuthEntry } from '@/utils/authEntryUtils';
 
 type ClientOptions = contract.ClientOptions;
 
@@ -189,6 +189,11 @@ export class NumberGuessService {
         // The preimage is what needs to be signed
         // Call wallet to sign the preimage hash
         console.log('[prepareStartGame] Signing preimage with wallet...');
+
+        if (!player1Signer.signAuthEntry) {
+          throw new Error('Wallet does not support auth entry signing');
+        }
+
         const signResult = await player1Signer.signAuthEntry(
           preimage.toXDR('base64'),  // Preimage as base64 XDR
           {

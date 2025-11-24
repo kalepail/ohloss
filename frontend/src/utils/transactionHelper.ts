@@ -50,7 +50,7 @@ export async function signAndSendViaLaunchtube(
 
   // 3. Sign auth entries if needed
   const userAddress = tx.options.publicKey || tx.options.address;
-  if (needsAuthSigning.length > 0 && needsAuthSigning.includes(userAddress)) {
+  if (needsAuthSigning.length > 0 && userAddress && needsAuthSigning.includes(userAddress)) {
     console.log('[signAndSendViaLaunchtube] Signing auth entries for user:', userAddress);
     if (validUntilLedgerSeq) {
       console.log('[signAndSendViaLaunchtube] Using expiration ledger:', validUntilLedgerSeq);

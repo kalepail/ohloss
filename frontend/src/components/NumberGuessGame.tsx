@@ -28,9 +28,7 @@ export function NumberGuessGame({
   // Use a session ID that fits in u32 (max 4,294,967,295)
   // Take the last 9 digits of the timestamp to ensure uniqueness while fitting in u32
   const [sessionId, setSessionId] = useState<number>(() => Math.floor(Date.now() / 1000) % 1000000000);
-  const [player2Address, setPlayer2Address] = useState('');
   const [player1Wager, setPlayer1Wager] = useState('0.1');
-  const [player2Wager, setPlayer2Wager] = useState('0.1');
   const [guess, setGuess] = useState<number | null>(null);
   const [gameState, setGameState] = useState<Game | null>(null);
   const [loading, setLoading] = useState(false);
@@ -42,7 +40,6 @@ export function NumberGuessGame({
   const [importAuthEntryXDR, setImportAuthEntryXDR] = useState('');
   const [importSessionId, setImportSessionId] = useState('');
   const [importPlayer1, setImportPlayer1] = useState('');
-  const [importPlayer2, setImportPlayer2] = useState('');
   const [importPlayer1Wager, setImportPlayer1Wager] = useState('');
   const [importPlayer2Wager, setImportPlayer2Wager] = useState('');
   const [loadSessionId, setLoadSessionId] = useState('');
@@ -75,9 +72,9 @@ export function NumberGuessGame({
       setGameState(game);
 
       // Determine game phase based on state
-      if (game.winner !== null && game.winner !== undefined) {
+      if (game && game.winner !== null && game.winner !== undefined) {
         setGamePhase('complete');
-      } else if (game.player1_guess !== null && game.player1_guess !== undefined &&
+      } else if (game && game.player1_guess !== null && game.player1_guess !== undefined &&
                  game.player2_guess !== null && game.player2_guess !== undefined) {
         setGamePhase('reveal');
       } else {
@@ -404,7 +401,6 @@ export function NumberGuessGame({
       setImportAuthEntryXDR('');
       setImportSessionId('');
       setImportPlayer1('');
-      setImportPlayer2('');
       setImportPlayer1Wager('');
       setImportPlayer2Wager('');
 
@@ -458,7 +454,11 @@ export function NumberGuessGame({
         5000
       );
 
-      // Verify the user is one of the players
+      // Verify game exists and user is one of the players
+      if (!game) {
+        throw new Error('Game not found');
+      }
+
       if (game.player1 !== userAddress && game.player2 !== userAddress) {
         throw new Error('You are not a player in this game');
       }
@@ -655,7 +655,6 @@ export function NumberGuessGame({
                 setImportAuthEntryXDR('');
                 setImportSessionId('');
                 setImportPlayer1('');
-                setImportPlayer2('');
                 setImportPlayer1Wager('');
                 setImportPlayer2Wager('');
                 setLoadSessionId('');
@@ -689,7 +688,6 @@ export function NumberGuessGame({
                 setImportAuthEntryXDR('');
                 setImportSessionId('');
                 setImportPlayer1('');
-                setImportPlayer2('');
                 setImportPlayer1Wager('');
                 setImportPlayer2Wager('');
               }}

@@ -1,5 +1,4 @@
-import { xdr, Address, TransactionBuilder, Transaction, contract } from '@stellar/stellar-sdk';
-import { NETWORK_PASSPHRASE } from './constants';
+import { xdr, Address, contract } from '@stellar/stellar-sdk';
 
 type AssembledTransaction = contract.AssembledTransaction<unknown>;
 
@@ -32,9 +31,6 @@ export function extractSignedAuthEntry(
   console.log(`[extractSignedAuthEntry] Looking for auth entry for ${signerAddress}`);
   console.log(`[extractSignedAuthEntry] Found ${authEntries.length} auth entries in simulation data`);
 
-  // Find the auth entry for the signer's address
-  const signerScAddress = Address.fromString(signerAddress).toScAddress();
-
   for (let i = 0; i < authEntries.length; i++) {
     const entry = authEntries[i];
     try {
@@ -44,8 +40,8 @@ export function extractSignedAuthEntry(
 
       console.log(`[extractSignedAuthEntry] Auth entry ${i} address: ${entryAddressString}`);
 
-      // Compare ScAddress objects
-      if (entryAddress.equals(signerScAddress)) {
+      // Compare address strings
+      if (entryAddressString === signerAddress) {
         console.log(`[extractSignedAuthEntry] Found matching auth entry at index ${i}`);
         // Found the matching auth entry - serialize to XDR
         return entry.toXDR('base64');
@@ -104,7 +100,6 @@ export function injectSignedAuthEntry(
   }
 
   // Find the index of the stubbed auth entry for this signer
-  const signerScAddress = Address.fromString(signerAddress).toScAddress();
   let matchIndex = -1;
 
   for (let i = 0; i < authEntries.length; i++) {
