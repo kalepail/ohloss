@@ -8,7 +8,14 @@ pub use crate::errors::Error;
 // Re-export number_guess Error as NumberGuessError to avoid conflicts
 pub use number_guess::Error as NumberGuessError;
 
+/// Default free FP per epoch for tests (100 FP with 7 decimals)
+pub const DEFAULT_FREE_FP_PER_EPOCH: i128 = 100_0000000;
+
+/// Default minimum deposit to claim for tests (1 USDC with 7 decimals)
+pub const DEFAULT_MIN_DEPOSIT_TO_CLAIM: i128 = 1_0000000;
+
 /// Register and initialize the Blendizzard contract
+#[allow(clippy::too_many_arguments)]
 pub fn create_blendizzard_contract<'a>(
     env: &Env,
     admin: &Address,
@@ -18,6 +25,34 @@ pub fn create_blendizzard_contract<'a>(
     usdc_token: &Address,
     epoch_duration: u64,
     reserve_token_ids: Vec<u32>,
+) -> BlendizzardClient<'a> {
+    create_blendizzard_contract_with_free_play(
+        env,
+        admin,
+        fee_vault,
+        soroswap_router,
+        blnd_token,
+        usdc_token,
+        epoch_duration,
+        reserve_token_ids,
+        DEFAULT_FREE_FP_PER_EPOCH,
+        DEFAULT_MIN_DEPOSIT_TO_CLAIM,
+    )
+}
+
+/// Register and initialize the Blendizzard contract with custom free play settings
+#[allow(clippy::too_many_arguments)]
+pub fn create_blendizzard_contract_with_free_play<'a>(
+    env: &Env,
+    admin: &Address,
+    fee_vault: &Address,
+    soroswap_router: &Address,
+    blnd_token: &Address,
+    usdc_token: &Address,
+    epoch_duration: u64,
+    reserve_token_ids: Vec<u32>,
+    free_fp_per_epoch: i128,
+    min_deposit_to_claim: i128,
 ) -> BlendizzardClient<'a> {
     let contract_address = env.register(
         Blendizzard,
@@ -29,6 +64,8 @@ pub fn create_blendizzard_contract<'a>(
             usdc_token.clone(),
             epoch_duration,
             reserve_token_ids,
+            free_fp_per_epoch,
+            min_deposit_to_claim,
         ),
     );
     BlendizzardClient::new(env, &contract_address)

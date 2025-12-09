@@ -1,9 +1,9 @@
 import { Buffer } from "buffer";
-import { AssembledTransaction, Client as ContractClient, ClientOptions as ContractClientOptions, MethodOptions } from '@stellar/stellar-sdk/contract';
-import type { u32, u64, i128, Option } from '@stellar/stellar-sdk/contract';
-export * from '@stellar/stellar-sdk';
-export * as contract from '@stellar/stellar-sdk/contract';
-export * as rpc from '@stellar/stellar-sdk/rpc';
+import { AssembledTransaction, Client as ContractClient, ClientOptions as ContractClientOptions, MethodOptions } from "@stellar/stellar-sdk/contract";
+import type { u32, u64, i128, Option } from "@stellar/stellar-sdk/contract";
+export * from "@stellar/stellar-sdk";
+export * as contract from "@stellar/stellar-sdk/contract";
+export * as rpc from "@stellar/stellar-sdk/rpc";
 export declare const networks: {
     readonly unknown: {
         readonly networkPassphrase: "Public Global Stellar Network ; September 2015";
@@ -161,20 +161,7 @@ export interface Client {
     deposit: ({ user, amount }: {
         user: string;
         amount: i128;
-    }, options?: {
-        /**
-         * The fee to pay for the transaction. Default: BASE_FEE
-         */
-        fee?: number;
-        /**
-         * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-         */
-        timeoutInSeconds?: number;
-        /**
-         * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-         */
-        simulate?: boolean;
-    }) => Promise<AssembledTransaction<i128>>;
+    }, options?: MethodOptions) => Promise<AssembledTransaction<i128>>;
     /**
      * Construct and simulate a get_fee transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      * Get the vault's fee configuration
@@ -182,20 +169,7 @@ export interface Client {
      * ### Returns
      * * `Fee` - The fee configuration for the vault
      */
-    get_fee: (options?: {
-        /**
-         * The fee to pay for the transaction. Default: BASE_FEE
-         */
-        fee?: number;
-        /**
-         * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-         */
-        timeoutInSeconds?: number;
-        /**
-         * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-         */
-        simulate?: boolean;
-    }) => Promise<AssembledTransaction<Fee>>;
+    get_fee: (options?: MethodOptions) => Promise<AssembledTransaction<Fee>>;
     /**
      * Construct and simulate a set_fee transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      * ADMIN ONLY
@@ -216,25 +190,11 @@ export interface Client {
     set_fee: ({ rate_type, rate }: {
         rate_type: u32;
         rate: u32;
-    }, options?: {
-        /**
-         * The fee to pay for the transaction. Default: BASE_FEE
-         */
-        fee?: number;
-        /**
-         * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-         */
-        timeoutInSeconds?: number;
-        /**
-         * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-         */
-        simulate?: boolean;
-    }) => Promise<AssembledTransaction<null>>;
+    }, options?: MethodOptions) => Promise<AssembledTransaction<null>>;
     /**
      * Construct and simulate a withdraw transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      * Withdraws tokens from the fee vault for a specific reserve. If the input amount is greater
      * than the user's underlying balance, the user's full balance will be withdrawn.
-     * Requires the signer to sign the transaction if the signer is set.
      *
      * ### Arguments
      * * `user` - The address of the user making the withdrawal
@@ -251,20 +211,7 @@ export interface Client {
     withdraw: ({ user, amount }: {
         user: string;
         amount: i128;
-    }, options?: {
-        /**
-         * The fee to pay for the transaction. Default: BASE_FEE
-         */
-        fee?: number;
-        /**
-         * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-         */
-        timeoutInSeconds?: number;
-        /**
-         * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-         */
-        simulate?: boolean;
-    }) => Promise<AssembledTransaction<i128>>;
+    }, options?: MethodOptions) => Promise<AssembledTransaction<i128>>;
     /**
      * Construct and simulate a get_admin transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      * Get the vault's admin
@@ -272,20 +219,7 @@ export interface Client {
      * ### Returns
      * * `Address` - The admin address for the vault
      */
-    get_admin: (options?: {
-        /**
-         * The fee to pay for the transaction. Default: BASE_FEE
-         */
-        fee?: number;
-        /**
-         * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-         */
-        timeoutInSeconds?: number;
-        /**
-         * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-         */
-        simulate?: boolean;
-    }) => Promise<AssembledTransaction<string>>;
+    get_admin: (options?: MethodOptions) => Promise<AssembledTransaction<string>>;
     /**
      * Construct and simulate a get_vault transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      * Get the vault data
@@ -293,20 +227,7 @@ export interface Client {
      * ### Returns
      * * `VaultData` - The vault data
      */
-    get_vault: (options?: {
-        /**
-         * The fee to pay for the transaction. Default: BASE_FEE
-         */
-        fee?: number;
-        /**
-         * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-         */
-        timeoutInSeconds?: number;
-        /**
-         * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-         */
-        simulate?: boolean;
-    }) => Promise<AssembledTransaction<VaultData>>;
+    get_vault: (options?: MethodOptions) => Promise<AssembledTransaction<VaultData>>;
     /**
      * Construct and simulate a set_admin transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      * ADMIN ONLY
@@ -319,20 +240,7 @@ export interface Client {
      */
     set_admin: ({ admin }: {
         admin: string;
-    }, options?: {
-        /**
-         * The fee to pay for the transaction. Default: BASE_FEE
-         */
-        fee?: number;
-        /**
-         * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-         */
-        timeoutInSeconds?: number;
-        /**
-         * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-         */
-        simulate?: boolean;
-    }) => Promise<AssembledTransaction<null>>;
+    }, options?: MethodOptions) => Promise<AssembledTransaction<null>>;
     /**
      * Construct and simulate a get_config transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      * Get the vault's blend pool it deposits into and the asset it supports.
@@ -340,20 +248,7 @@ export interface Client {
      * ### Returns
      * * `(Address, Address)` - (The blend pool address, the asset address)
      */
-    get_config: (options?: {
-        /**
-         * The fee to pay for the transaction. Default: BASE_FEE
-         */
-        fee?: number;
-        /**
-         * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-         */
-        timeoutInSeconds?: number;
-        /**
-         * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-         */
-        simulate?: boolean;
-    }) => Promise<AssembledTransaction<readonly [string, string]>>;
+    get_config: (options?: MethodOptions) => Promise<AssembledTransaction<readonly [string, string]>>;
     /**
      * Construct and simulate a get_shares transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      * Fetch a user's position in shares
@@ -366,20 +261,7 @@ export interface Client {
      */
     get_shares: ({ user }: {
         user: string;
-    }, options?: {
-        /**
-         * The fee to pay for the transaction. Default: BASE_FEE
-         */
-        fee?: number;
-        /**
-         * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-         */
-        timeoutInSeconds?: number;
-        /**
-         * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-         */
-        simulate?: boolean;
-    }) => Promise<AssembledTransaction<i128>>;
+    }, options?: MethodOptions) => Promise<AssembledTransaction<i128>>;
     /**
      * Construct and simulate a get_signer transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      * Get the vault's signer
@@ -387,20 +269,7 @@ export interface Client {
      * ### Returns
      * * `Option<Address>` - The signer address for the vault, or None if no signer is set
      */
-    get_signer: (options?: {
-        /**
-         * The fee to pay for the transaction. Default: BASE_FEE
-         */
-        fee?: number;
-        /**
-         * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-         */
-        timeoutInSeconds?: number;
-        /**
-         * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-         */
-        simulate?: boolean;
-    }) => Promise<AssembledTransaction<Option<string>>>;
+    get_signer: (options?: MethodOptions) => Promise<AssembledTransaction<Option<string>>>;
     /**
      * Construct and simulate a set_signer transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      * ADMIN ONLY
@@ -415,20 +284,7 @@ export interface Client {
      */
     set_signer: ({ signer }: {
         signer: Option<string>;
-    }, options?: {
-        /**
-         * The fee to pay for the transaction. Default: BASE_FEE
-         */
-        fee?: number;
-        /**
-         * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-         */
-        timeoutInSeconds?: number;
-        /**
-         * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-         */
-        simulate?: boolean;
-    }) => Promise<AssembledTransaction<null>>;
+    }, options?: MethodOptions) => Promise<AssembledTransaction<null>>;
     /**
      * Construct and simulate a get_rewards transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      * Fetch a user's rewards for a specific token. Does not update the user's rewards.
@@ -446,20 +302,7 @@ export interface Client {
     get_rewards: ({ user, token }: {
         user: string;
         token: string;
-    }, options?: {
-        /**
-         * The fee to pay for the transaction. Default: BASE_FEE
-         */
-        fee?: number;
-        /**
-         * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-         */
-        timeoutInSeconds?: number;
-        /**
-         * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-         */
-        simulate?: boolean;
-    }) => Promise<AssembledTransaction<Option<UserRewards>>>;
+    }, options?: MethodOptions) => Promise<AssembledTransaction<Option<UserRewards>>>;
     /**
      * Construct and simulate a set_rewards transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      * ADMIN ONLY
@@ -479,20 +322,7 @@ export interface Client {
         token: string;
         reward_amount: i128;
         expiration: u64;
-    }, options?: {
-        /**
-         * The fee to pay for the transaction. Default: BASE_FEE
-         */
-        fee?: number;
-        /**
-         * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-         */
-        timeoutInSeconds?: number;
-        /**
-         * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-         */
-        simulate?: boolean;
-    }) => Promise<AssembledTransaction<null>>;
+    }, options?: MethodOptions) => Promise<AssembledTransaction<null>>;
     /**
      * Construct and simulate a get_b_tokens transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      * Fetch a user's position in bTokens
@@ -505,20 +335,7 @@ export interface Client {
      */
     get_b_tokens: ({ user }: {
         user: string;
-    }, options?: {
-        /**
-         * The fee to pay for the transaction. Default: BASE_FEE
-         */
-        fee?: number;
-        /**
-         * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-         */
-        timeoutInSeconds?: number;
-        /**
-         * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-         */
-        simulate?: boolean;
-    }) => Promise<AssembledTransaction<i128>>;
+    }, options?: MethodOptions) => Promise<AssembledTransaction<i128>>;
     /**
      * Construct and simulate a admin_deposit transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      * ADMIN ONLY
@@ -537,20 +354,7 @@ export interface Client {
      */
     admin_deposit: ({ amount }: {
         amount: i128;
-    }, options?: {
-        /**
-         * The fee to pay for the transaction. Default: BASE_FEE
-         */
-        fee?: number;
-        /**
-         * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-         */
-        timeoutInSeconds?: number;
-        /**
-         * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-         */
-        simulate?: boolean;
-    }) => Promise<AssembledTransaction<i128>>;
+    }, options?: MethodOptions) => Promise<AssembledTransaction<i128>>;
     /**
      * Construct and simulate a claim_rewards transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      * Claims rewards for the user from the fee vault.
@@ -570,20 +374,7 @@ export interface Client {
         user: string;
         reward_token: string;
         to: string;
-    }, options?: {
-        /**
-         * The fee to pay for the transaction. Default: BASE_FEE
-         */
-        fee?: number;
-        /**
-         * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-         */
-        timeoutInSeconds?: number;
-        /**
-         * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-         */
-        simulate?: boolean;
-    }) => Promise<AssembledTransaction<i128>>;
+    }, options?: MethodOptions) => Promise<AssembledTransaction<i128>>;
     /**
      * Construct and simulate a admin_withdraw transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      * ADMIN ONLY
@@ -602,20 +393,7 @@ export interface Client {
      */
     admin_withdraw: ({ amount }: {
         amount: i128;
-    }, options?: {
-        /**
-         * The fee to pay for the transaction. Default: BASE_FEE
-         */
-        fee?: number;
-        /**
-         * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-         */
-        timeoutInSeconds?: number;
-        /**
-         * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-         */
-        simulate?: boolean;
-    }) => Promise<AssembledTransaction<i128>>;
+    }, options?: MethodOptions) => Promise<AssembledTransaction<i128>>;
     /**
      * Construct and simulate a claim_emissions transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      * ADMIN ONLY
@@ -633,20 +411,7 @@ export interface Client {
     claim_emissions: ({ reserve_token_ids, to }: {
         reserve_token_ids: Array<u32>;
         to: string;
-    }, options?: {
-        /**
-         * The fee to pay for the transaction. Default: BASE_FEE
-         */
-        fee?: number;
-        /**
-         * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-         */
-        timeoutInSeconds?: number;
-        /**
-         * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-         */
-        simulate?: boolean;
-    }) => Promise<AssembledTransaction<i128>>;
+    }, options?: MethodOptions) => Promise<AssembledTransaction<i128>>;
     /**
      * Construct and simulate a get_reward_data transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      * Get the reward data for a specific token
@@ -659,20 +424,7 @@ export interface Client {
      */
     get_reward_data: ({ token }: {
         token: string;
-    }, options?: {
-        /**
-         * The fee to pay for the transaction. Default: BASE_FEE
-         */
-        fee?: number;
-        /**
-         * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-         */
-        timeoutInSeconds?: number;
-        /**
-         * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-         */
-        simulate?: boolean;
-    }) => Promise<AssembledTransaction<Option<RewardData>>>;
+    }, options?: MethodOptions) => Promise<AssembledTransaction<Option<RewardData>>>;
     /**
      * Construct and simulate a get_reward_token transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      * Get the current reward token for the fee vault
@@ -680,48 +432,7 @@ export interface Client {
      * ### Returns
      * * `Option<Address>` - The address of the reward token, or None if no reward token is set
      */
-    get_reward_token: (options?: {
-        /**
-         * The fee to pay for the transaction. Default: BASE_FEE
-         */
-        fee?: number;
-        /**
-         * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-         */
-        timeoutInSeconds?: number;
-        /**
-         * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-         */
-        simulate?: boolean;
-    }) => Promise<AssembledTransaction<Option<string>>>;
-    /**
-     * Construct and simulate a upgrade_contract transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-     * ADMIN ONLY
-     * Upgrades the contract to use new WASM bytecode. This allows the contract
-     * to be updated with new functionality while preserving its state and address.
-     *
-     * ### Arguments
-     * * `new_wasm_hash` - The hash of the new WASM bytecode to upgrade to
-     *
-     * ### Panics
-     * * Only the admin can call this function
-     */
-    upgrade_contract: ({ new_wasm_hash }: {
-        new_wasm_hash: Buffer;
-    }, options?: {
-        /**
-         * The fee to pay for the transaction. Default: BASE_FEE
-         */
-        fee?: number;
-        /**
-         * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-         */
-        timeoutInSeconds?: number;
-        /**
-         * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-         */
-        simulate?: boolean;
-    }) => Promise<AssembledTransaction<null>>;
+    get_reward_token: (options?: MethodOptions) => Promise<AssembledTransaction<Option<string>>>;
     /**
      * Construct and simulate a get_vault_summary transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      * NOT INTENDED FOR CONTRACT USE
@@ -733,20 +444,7 @@ export interface Client {
      * ### Returns
      * * `VaultSummary` - The summary of the vault
      */
-    get_vault_summary: (options?: {
-        /**
-         * The fee to pay for the transaction. Default: BASE_FEE
-         */
-        fee?: number;
-        /**
-         * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-         */
-        timeoutInSeconds?: number;
-        /**
-         * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-         */
-        simulate?: boolean;
-    }) => Promise<AssembledTransaction<VaultSummary>>;
+    get_vault_summary: (options?: MethodOptions) => Promise<AssembledTransaction<VaultSummary>>;
     /**
      * Construct and simulate a get_underlying_tokens transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      * Fetch a user's position in underlying tokens
@@ -759,20 +457,7 @@ export interface Client {
      */
     get_underlying_tokens: ({ user }: {
         user: string;
-    }, options?: {
-        /**
-         * The fee to pay for the transaction. Default: BASE_FEE
-         */
-        fee?: number;
-        /**
-         * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-         */
-        timeoutInSeconds?: number;
-        /**
-         * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-         */
-        simulate?: boolean;
-    }) => Promise<AssembledTransaction<i128>>;
+    }, options?: MethodOptions) => Promise<AssembledTransaction<i128>>;
     /**
      * Construct and simulate a get_underlying_admin_balance transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      * Fetch the admin balance in underlying tokens
@@ -780,20 +465,7 @@ export interface Client {
      * ### Returns
      * * `i128` - The admin's accrued fees in underlying tokens, or 0 if the reserve does not exist
      */
-    get_underlying_admin_balance: (options?: {
-        /**
-         * The fee to pay for the transaction. Default: BASE_FEE
-         */
-        fee?: number;
-        /**
-         * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-         */
-        timeoutInSeconds?: number;
-        /**
-         * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-         */
-        simulate?: boolean;
-    }) => Promise<AssembledTransaction<i128>>;
+    get_underlying_admin_balance: (options?: MethodOptions) => Promise<AssembledTransaction<i128>>;
 }
 export declare class Client extends ContractClient {
     readonly options: ContractClientOptions;
@@ -838,7 +510,6 @@ export declare class Client extends ContractClient {
         claim_emissions: (json: string) => AssembledTransaction<bigint>;
         get_reward_data: (json: string) => AssembledTransaction<Option<RewardData>>;
         get_reward_token: (json: string) => AssembledTransaction<Option<string>>;
-        upgrade_contract: (json: string) => AssembledTransaction<null>;
         get_vault_summary: (json: string) => AssembledTransaction<VaultSummary>;
         get_underlying_tokens: (json: string) => AssembledTransaction<bigint>;
         get_underlying_admin_balance: (json: string) => AssembledTransaction<bigint>;

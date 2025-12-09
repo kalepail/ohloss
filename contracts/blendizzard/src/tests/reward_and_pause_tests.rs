@@ -136,7 +136,7 @@ fn test_admin_functions_work_when_paused() {
 
     // Admin can update config (just verify it doesn't error)
     let new_router = Address::generate(&env);
-    blendizzard.update_config(&Some(new_router.clone()), &None, &None, &None, &None, &None);
+    blendizzard.update_config(&Some(new_router.clone()), &None, &None, &None, &None, &None, &None, &None);
 
     // Config should be updated (just verify get_config works)
     let _config = blendizzard.get_config();
@@ -153,9 +153,12 @@ fn test_admin_functions_work_when_paused() {
 #[test]
 fn test_claim_epoch_reward_before_epoch_finalized() {
     let env = setup_test_env();
-    let (_game, _vault, _mock_vault, blendizzard, _usdc) = setup_complete_game_env(&env);
+    let (_game, _vault, mock_vault, blendizzard, _usdc) = setup_complete_game_env(&env);
 
     let player = Address::generate(&env);
+
+    // Set vault balance to pass the deposit gate check
+    mock_vault.set_user_balance(&player, &10_0000000); // 10 USDC (above min_deposit_to_claim)
 
     // Try to claim from epoch 0 before it's finalized
     let result = blendizzard.try_claim_epoch_reward(&player, &0);

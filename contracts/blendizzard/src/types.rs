@@ -157,6 +157,16 @@ pub struct Config {
     /// token_type: 0 = debt token, 1 = b-token (suppliers)
     /// Example: For reserve 0 b-tokens (suppliers), use [1]
     pub reserve_token_ids: Vec<u32>,
+
+    /// Base FP granted to all players each epoch regardless of deposit (7 decimals)
+    /// Enables "free play" where players can participate without depositing
+    /// Default: 100_0000000 (100 FP)
+    pub free_fp_per_epoch: i128,
+
+    /// Minimum vault balance required to claim epoch rewards (7 decimals)
+    /// Anti-sybil mechanism: players must deposit to extract value
+    /// Default: 1_0000000 (1 USDC)
+    pub min_deposit_to_claim: i128,
 }
 
 // ============================================================================

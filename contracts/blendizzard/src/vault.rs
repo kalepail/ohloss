@@ -99,20 +99,3 @@ pub(crate) fn check_cross_epoch_withdrawal_reset(
 
     Ok(reset)
 }
-
-// ============================================================================
-// Migration Notes
-// ============================================================================
-
-// REMOVED FUNCTIONS (no longer needed in cross-epoch architecture):
-// - deposit() - Players deposit directly to fee-vault-v2
-// - withdraw() - Players withdraw directly from fee-vault-v2
-// - check_and_handle_withdrawal_reset() - Replaced by cross-epoch comparison
-// - get_balance() - Replaced by get_vault_balance()
-// - get_time_multiplier_start() - Still available via storage::get_player()
-
-// NEW ARCHITECTURE:
-// 1. Players interact directly with fee-vault-v2 for deposits/withdrawals
-// 2. Blendizzard queries vault balances on-demand at game start
-// 3. Withdrawal reset happens via cross-epoch comparison (not per-transaction)
-// 4. FP calculated once per epoch based on vault balance snapshot

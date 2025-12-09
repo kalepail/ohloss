@@ -12,7 +12,7 @@ CAG5LRYQ5JVEUI5TEID72EYOVX44TTUJT5BQR2J6J77FH65PCCFAJDDH
 CBBY53VYJSMAWCBZZ7BHJZ5XSZNJUS4ZE6Q4RN7TKZGHPYHMEE467W7Y
 
 // blendizzard
-aed18a05b9d70d819413ea2c599cd8429ff6c1a6f4f69a85869705e3b94969c4
+e9f0bc1a6baa2cddd306b1df03f846328ca643c2e7f248e504414c1712511124
 CAHPLVEDW2HWY2EOTCTECDK5ZRHAB5FLER3WGHQ5OPFMBMMFJSTBRJZU
 
 // number guess
@@ -26,7 +26,7 @@ stellar contract deploy --wasm target/wasm32v1-none/release/blendizzard.optimize
 stellar contract upload --wasm target/wasm32v1-none/release/blendizzard.optimized.wasm --source rich --fee 1000000000
 
 // upgrade blendizzard
-stellar contract invoke --id CAHPLVEDW2HWY2EOTCTECDK5ZRHAB5FLER3WGHQ5OPFMBMMFJSTBRJZU --source rich --fee 10000000 -- upgrade --new_wasm_hash aed18a05b9d70d819413ea2c599cd8429ff6c1a6f4f69a85869705e3b94969c4
+stellar contract invoke --id CAHPLVEDW2HWY2EOTCTECDK5ZRHAB5FLER3WGHQ5OPFMBMMFJSTBRJZU --source rich --fee 10000000 -- upgrade --new_wasm_hash e9f0bc1a6baa2cddd306b1df03f846328ca643c2e7f248e504414c1712511124
 
 // deposit 5 USDC
 stellar contract invoke --id CBBY53VYJSMAWCBZZ7BHJZ5XSZNJUS4ZE6Q4RN7TKZGHPYHMEE467W7Y --network mainnet --source default --fee 10000000 -- deposit --player default --amount 50000000

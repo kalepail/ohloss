@@ -5,6 +5,7 @@ mod emissions_tests;
 mod epoch_edge_cases_tests;
 pub(crate) mod fee_vault_utils;
 mod fp_edge_cases_tests;
+mod free_play_tests;
 mod game_expiration_tests;
 mod game_mechanics;
 mod math_rounding_tests;

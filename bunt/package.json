@@ -13,7 +13,7 @@
     "bindings:all": "bun run update:bindings && bun run install:bindings && bun run build:bindings"
   },
   "dependencies": {
-    "@stellar/stellar-sdk": "^14.4.0",
+    "@stellar/stellar-sdk": "^14.4.2",
     "buffer": "^6.0.3",
     "blendizzard": "workspace:*",
     "fee-vault": "workspace:*",

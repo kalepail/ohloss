@@ -79,6 +79,9 @@ pub enum Error {
     /// Player was not in the winning faction for this epoch
     NotWinningFaction = 42,
 
+    /// Player must deposit minimum amount to claim rewards (anti-sybil)
+    DepositRequiredToClaim = 43,
+
     // ========================================================================
     // External contract errors (50-59)
     // ========================================================================

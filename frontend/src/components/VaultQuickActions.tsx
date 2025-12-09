@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { feeVaultService } from '@/services/feeVaultService';
+import { blendizzardService } from '@/services/blendizzardService';
 import { balanceService } from '@/services/balanceService';
 import { requestCache, createCacheKey } from '@/utils/requestCache';
 import { USDC_DECIMALS } from '@/utils/constants';
@@ -18,28 +19,48 @@ export function VaultQuickActions({ userAddress, onSuccess, refreshTrigger = 0 }
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [usdcBalance, setUsdcBalance] = useState<bigint>(0n);
+  const [minDepositToClaim, setMinDepositToClaim] = useState<bigint>(0n);
+  const [vaultBalance, setVaultBalance] = useState<bigint>(0n);
 
   useEffect(() => {
     const abortController = new AbortController();
 
-    const loadBalance = async () => {
+    const loadData = async () => {
       try {
         // Use requestCache to prevent duplicate calls in React Strict Mode
-        const balance = await requestCache.dedupe(
-          createCacheKey('usdc-balance', userAddress),
-          () => balanceService.getUSDCBalance(userAddress),
-          30000,
-          abortController.signal
-        );
+        const [balance, config, vault] = await Promise.all([
+          requestCache.dedupe(
+            createCacheKey('usdc-balance', userAddress),
+            () => balanceService.getUSDCBalance(userAddress),
+            30000,
+            abortController.signal
+          ),
+          requestCache.dedupe(
+            createCacheKey('blendizzard-config'),
+            () => blendizzardService.getConfig(),
+            60000,
+            abortController.signal
+          ),
+          requestCache.dedupe(
+            createCacheKey('vault-balance', userAddress),
+            () => feeVaultService.getUserBalance(userAddress),
+            30000,
+            abortController.signal
+          ),
+        ]);
         setUsdcBalance(balance);
+        // Default to 1 USDC (7 decimals) if config field not present (backwards compatibility)
+        const minDeposit = config.min_deposit_to_claim ?? 1_0000000n;
+        setMinDepositToClaim(BigInt(minDeposit));
+        setVaultBalance(vault);
       } catch (err: any) {
         if (err?.name !== 'AbortError') {
-          console.error('Failed to load USDC balance:', err);
+          console.error('Failed to load balances:', err);
         }
       }
     };
 
-    loadBalance();
+    loadData();
 
     return () => {
       abortController.abort();
@@ -49,8 +70,13 @@ export function VaultQuickActions({ userAddress, onSuccess, refreshTrigger = 0 }
   const loadBalance = async () => {
     // Invalidate cache to force fresh data after transactions
     requestCache.invalidate(createCacheKey('usdc-balance', userAddress));
-    const balance = await balanceService.getUSDCBalance(userAddress);
+    requestCache.invalidate(createCacheKey('vault-balance', userAddress));
+    const [balance, vault] = await Promise.all([
+      balanceService.getUSDCBalance(userAddress),
+      feeVaultService.getUserBalance(userAddress),
+    ]);
     setUsdcBalance(balance);
+    setVaultBalance(vault);
   };
 
   const formatBalance = (balance: bigint): string => {
@@ -193,10 +219,15 @@ export function VaultQuickActions({ userAddress, onSuccess, refreshTrigger = 0 }
           </button>
         </div>
 
-        <div className="pt-3 border-t-2 border-gray-100">
+        <div className="pt-3 border-t-2 border-gray-100 space-y-2">
           <p className="text-xs font-medium text-gray-600">
             ⚠️ Withdrawing &gt;50% between epochs resets your time multiplier
           </p>
+          {minDepositToClaim > 0n && vaultBalance < minDepositToClaim && (
+            <p className="text-xs font-medium text-amber-600">
+              💡 Deposit at least {formatBalance(minDepositToClaim)} USDC to unlock reward claiming
+            </p>
+          )}
         </div>
       </div>
     </div>

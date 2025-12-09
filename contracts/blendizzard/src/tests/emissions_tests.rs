@@ -37,7 +37,7 @@ fn test_update_reserve_token_ids() {
     let new_reserve_ids = vec![&env, 1u32, 3u32, 5u32];
 
     // Update only reserve_token_ids
-    client.update_config(&None, &None, &None, &None, &None, &Some(new_reserve_ids));
+    client.update_config(&None, &None, &None, &None, &None, &Some(new_reserve_ids), &None, &None);
 
     // If update succeeds without error, reserve_token_ids were updated
     // Note: We can't query config directly, but we verified the call succeeds
@@ -66,6 +66,8 @@ fn test_update_all_config_including_reserve_ids() {
         &Some(new_usdc_token),
         &Some(new_epoch_duration),
         &Some(new_reserve_ids),
+        &None,
+        &None,
     );
 
     // Call succeeds - all config updated including reserve_token_ids
@@ -145,7 +147,7 @@ fn test_multiple_reserve_token_ids() {
     // Example: reserves 0, 1, 2 (b-tokens): [1, 3, 5]
     let multi_reserve_ids = vec![&env, 1u32, 3u32, 5u32, 7u32];
 
-    client.update_config(&None, &None, &None, &None, &None, &Some(multi_reserve_ids));
+    client.update_config(&None, &None, &None, &None, &None, &Some(multi_reserve_ids), &None, &None);
 
     // Advance time and cycle
     env.ledger().with_mut(|li| {
@@ -168,7 +170,7 @@ fn test_empty_reserve_token_ids() {
     // Update to empty array (claim no emissions)
     let empty_reserve_ids = vec![&env];
 
-    client.update_config(&None, &None, &None, &None, &None, &Some(empty_reserve_ids));
+    client.update_config(&None, &None, &None, &None, &None, &Some(empty_reserve_ids), &None, &None);
 
     // Advance time and cycle
     env.ledger().with_mut(|li| {

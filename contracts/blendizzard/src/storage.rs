@@ -107,14 +107,6 @@ pub(crate) fn set_player(env: &Env, player: &Address, data: &Player) {
     extend_player_ttl(env, player);
 }
 
-/// Check if player exists
-#[allow(dead_code)]
-pub(crate) fn has_player(env: &Env, player: &Address) -> bool {
-    env.storage()
-        .persistent()
-        .has(&DataKey::Player(player.clone()))
-}
-
 /// Get epoch-specific player data
 pub(crate) fn get_epoch_player(env: &Env, epoch: u32, player: &Address) -> Option<EpochPlayer> {
     let key = DataKey::EpochPlayer(epoch, player.clone());

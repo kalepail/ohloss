@@ -1,9 +1,9 @@
 import { Buffer } from "buffer";
-import { AssembledTransaction, Client as ContractClient, ClientOptions as ContractClientOptions, MethodOptions, Result } from '@stellar/stellar-sdk/contract';
-import type { u32, u64, i128, Option } from '@stellar/stellar-sdk/contract';
-export * from '@stellar/stellar-sdk';
-export * as contract from '@stellar/stellar-sdk/contract';
-export * as rpc from '@stellar/stellar-sdk/rpc';
+import { AssembledTransaction, Client as ContractClient, ClientOptions as ContractClientOptions, MethodOptions, Result } from "@stellar/stellar-sdk/contract";
+import type { u32, u64, i128, Option } from "@stellar/stellar-sdk/contract";
+export * from "@stellar/stellar-sdk";
+export * as contract from "@stellar/stellar-sdk/contract";
+export * as rpc from "@stellar/stellar-sdk/rpc";
 /**
  * Global configuration
  *
@@ -24,6 +24,18 @@ export interface Config {
    * fee-vault-v2 contract address
    */
     fee_vault: string;
+    /**
+   * Base FP granted to all players each epoch regardless of deposit (7 decimals)
+   * Enables "free play" where players can participate without depositing
+   * Default: 100_0000000 (100 FP)
+   */
+    free_fp_per_epoch: i128;
+    /**
+   * Minimum vault balance required to claim epoch rewards (7 decimals)
+   * Anti-sybil mechanism: players must deposit to extract value
+   * Default: 1_0000000 (1 USDC)
+   */
+    min_deposit_to_claim: i128;
     /**
    * Reserve token IDs for claiming BLND emissions from Blend pool
    * Formula: reserve_index * 2 + token_type
@@ -278,6 +290,12 @@ export declare const Errors: {
         message: string;
     };
     /**
+     * Player must deposit minimum amount to claim rewards (anti-sybil)
+     */
+    43: {
+        message: string;
+    };
+    /**
      * Soroswap swap operation failed
      */
     51: {
@@ -344,40 +362,14 @@ export interface Client {
      * # Errors
      * * `NotAdmin` - If caller is not the admin
      */
-    pause: (options?: {
-        /**
-         * The fee to pay for the transaction. Default: BASE_FEE
-         */
-        fee?: number;
-        /**
-         * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-         */
-        timeoutInSeconds?: number;
-        /**
-         * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-         */
-        simulate?: boolean;
-    }) => Promise<AssembledTransaction<Result<void>>>;
+    pause: (options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>;
     /**
      * Construct and simulate a is_game transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      * Check if a contract is an approved game
      */
     is_game: ({ id }: {
         id: string;
-    }, options?: {
-        /**
-         * The fee to pay for the transaction. Default: BASE_FEE
-         */
-        fee?: number;
-        /**
-         * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-         */
-        timeoutInSeconds?: number;
-        /**
-         * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-         */
-        simulate?: boolean;
-    }) => Promise<AssembledTransaction<boolean>>;
+    }, options?: MethodOptions) => Promise<AssembledTransaction<boolean>>;
     /**
      * Construct and simulate a unpause transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      * Unpause the contract
@@ -387,20 +379,7 @@ export interface Client {
      * # Errors
      * * `NotAdmin` - If caller is not the admin
      */
-    unpause: (options?: {
-        /**
-         * The fee to pay for the transaction. Default: BASE_FEE
-         */
-        fee?: number;
-        /**
-         * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-         */
-        timeoutInSeconds?: number;
-        /**
-         * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-         */
-        simulate?: boolean;
-    }) => Promise<AssembledTransaction<Result<void>>>;
+    unpause: (options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>;
     /**
      * Construct and simulate a upgrade transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      * Update the contract WASM hash (upgrade contract)
@@ -410,20 +389,7 @@ export interface Client {
      */
     upgrade: ({ new_wasm_hash }: {
         new_wasm_hash: Buffer;
-    }, options?: {
-        /**
-         * The fee to pay for the transaction. Default: BASE_FEE
-         */
-        fee?: number;
-        /**
-         * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-         */
-        timeoutInSeconds?: number;
-        /**
-         * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-         */
-        simulate?: boolean;
-    }) => Promise<AssembledTransaction<Result<void>>>;
+    }, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>;
     /**
      * Construct and simulate a add_game transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      * Add a game contract to the approved list
@@ -433,20 +399,7 @@ export interface Client {
      */
     add_game: ({ id }: {
         id: string;
-    }, options?: {
-        /**
-         * The fee to pay for the transaction. Default: BASE_FEE
-         */
-        fee?: number;
-        /**
-         * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-         */
-        timeoutInSeconds?: number;
-        /**
-         * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-         */
-        simulate?: boolean;
-    }) => Promise<AssembledTransaction<Result<void>>>;
+    }, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>;
     /**
      * Construct and simulate a end_game transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      * End a game session with outcome verification
@@ -470,38 +423,12 @@ export interface Client {
     end_game: ({ session_id, player1_won }: {
         session_id: u32;
         player1_won: boolean;
-    }, options?: {
-        /**
-         * The fee to pay for the transaction. Default: BASE_FEE
-         */
-        fee?: number;
-        /**
-         * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-         */
-        timeoutInSeconds?: number;
-        /**
-         * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-         */
-        simulate?: boolean;
-    }) => Promise<AssembledTransaction<Result<void>>>;
+    }, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>;
     /**
      * Construct and simulate a get_admin transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      * Get the admin address
      */
-    get_admin: (options?: {
-        /**
-         * The fee to pay for the transaction. Default: BASE_FEE
-         */
-        fee?: number;
-        /**
-         * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-         */
-        timeoutInSeconds?: number;
-        /**
-         * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-         */
-        simulate?: boolean;
-    }) => Promise<AssembledTransaction<string>>;
+    get_admin: (options?: MethodOptions) => Promise<AssembledTransaction<string>>;
     /**
      * Construct and simulate a get_epoch transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      * Get epoch information for a specific epoch
@@ -514,38 +441,12 @@ export interface Client {
      */
     get_epoch: ({ epoch }: {
         epoch: u32;
-    }, options?: {
-        /**
-         * The fee to pay for the transaction. Default: BASE_FEE
-         */
-        fee?: number;
-        /**
-         * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-         */
-        timeoutInSeconds?: number;
-        /**
-         * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-         */
-        simulate?: boolean;
-    }) => Promise<AssembledTransaction<Result<EpochInfo>>>;
+    }, options?: MethodOptions) => Promise<AssembledTransaction<Result<EpochInfo>>>;
     /**
      * Construct and simulate a is_paused transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      * Check if contract is paused
      */
-    is_paused: (options?: {
-        /**
-         * The fee to pay for the transaction. Default: BASE_FEE
-         */
-        fee?: number;
-        /**
-         * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-         */
-        timeoutInSeconds?: number;
-        /**
-         * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-         */
-        simulate?: boolean;
-    }) => Promise<AssembledTransaction<boolean>>;
+    is_paused: (options?: MethodOptions) => Promise<AssembledTransaction<boolean>>;
     /**
      * Construct and simulate a set_admin transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      * Update the admin address
@@ -555,38 +456,12 @@ export interface Client {
      */
     set_admin: ({ new_admin }: {
         new_admin: string;
-    }, options?: {
-        /**
-         * The fee to pay for the transaction. Default: BASE_FEE
-         */
-        fee?: number;
-        /**
-         * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-         */
-        timeoutInSeconds?: number;
-        /**
-         * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-         */
-        simulate?: boolean;
-    }) => Promise<AssembledTransaction<Result<void>>>;
+    }, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>;
     /**
      * Construct and simulate a get_config transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      * Get the current configuration
      */
-    get_config: (options?: {
-        /**
-         * The fee to pay for the transaction. Default: BASE_FEE
-         */
-        fee?: number;
-        /**
-         * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-         */
-        timeoutInSeconds?: number;
-        /**
-         * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-         */
-        simulate?: boolean;
-    }) => Promise<AssembledTransaction<Config>>;
+    get_config: (options?: MethodOptions) => Promise<AssembledTransaction<Config>>;
     /**
      * Construct and simulate a get_player transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      * Get player information
@@ -599,20 +474,7 @@ export interface Client {
      */
     get_player: ({ player }: {
         player: string;
-    }, options?: {
-        /**
-         * The fee to pay for the transaction. Default: BASE_FEE
-         */
-        fee?: number;
-        /**
-         * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-         */
-        timeoutInSeconds?: number;
-        /**
-         * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-         */
-        simulate?: boolean;
-    }) => Promise<AssembledTransaction<Result<Player>>>;
+    }, options?: MethodOptions) => Promise<AssembledTransaction<Result<Player>>>;
     /**
      * Construct and simulate a start_game transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      * Start a new game session
@@ -635,20 +497,7 @@ export interface Client {
         player2: string;
         player1_wager: i128;
         player2_wager: i128;
-    }, options?: {
-        /**
-         * The fee to pay for the transaction. Default: BASE_FEE
-         */
-        fee?: number;
-        /**
-         * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-         */
-        timeoutInSeconds?: number;
-        /**
-         * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-         */
-        simulate?: boolean;
-    }) => Promise<AssembledTransaction<Result<void>>>;
+    }, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>;
     /**
      * Construct and simulate a cycle_epoch transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      * Cycle to the next epoch
@@ -665,20 +514,7 @@ export interface Client {
      * * `FeeVaultError` - If fee-vault operations fail
      * * `SwapError` - If BLND → USDC swap fails
      */
-    cycle_epoch: (options?: {
-        /**
-         * The fee to pay for the transaction. Default: BASE_FEE
-         */
-        fee?: number;
-        /**
-         * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-         */
-        timeoutInSeconds?: number;
-        /**
-         * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-         */
-        simulate?: boolean;
-    }) => Promise<AssembledTransaction<Result<u32>>>;
+    cycle_epoch: (options?: MethodOptions) => Promise<AssembledTransaction<Result<u32>>>;
     /**
      * Construct and simulate a remove_game transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      * Remove a game contract from the approved list
@@ -688,20 +524,7 @@ export interface Client {
      */
     remove_game: ({ id }: {
         id: string;
-    }, options?: {
-        /**
-         * The fee to pay for the transaction. Default: BASE_FEE
-         */
-        fee?: number;
-        /**
-         * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-         */
-        timeoutInSeconds?: number;
-        /**
-         * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-         */
-        simulate?: boolean;
-    }) => Promise<AssembledTransaction<Result<void>>>;
+    }, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>;
     /**
      * Construct and simulate a update_config transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      * Update global configuration
@@ -716,31 +539,22 @@ export interface Client {
      * * `new_usdc_token` - New USDC token address (optional)
      * * `new_epoch_duration` - New epoch duration in seconds (optional)
      * * `new_reserve_token_ids` - New reserve token IDs for claiming BLND emissions (optional)
+     * * `new_free_fp_per_epoch` - New base FP for free play (optional)
+     * * `new_min_deposit_to_claim` - New minimum deposit to claim rewards (optional)
      *
      * # Errors
      * * `NotAdmin` - If caller is not the admin
      */
-    update_config: ({ new_fee_vault, new_soroswap_router, new_blnd_token, new_usdc_token, new_epoch_duration, new_reserve_token_ids }: {
+    update_config: ({ new_fee_vault, new_soroswap_router, new_blnd_token, new_usdc_token, new_epoch_duration, new_reserve_token_ids, new_free_fp_per_epoch, new_min_deposit_to_claim }: {
         new_fee_vault: Option<string>;
         new_soroswap_router: Option<string>;
         new_blnd_token: Option<string>;
         new_usdc_token: Option<string>;
         new_epoch_duration: Option<u64>;
         new_reserve_token_ids: Option<Array<u32>>;
-    }, options?: {
-        /**
-         * The fee to pay for the transaction. Default: BASE_FEE
-         */
-        fee?: number;
-        /**
-         * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-         */
-        timeoutInSeconds?: number;
-        /**
-         * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-         */
-        simulate?: boolean;
-    }) => Promise<AssembledTransaction<Result<void>>>;
+        new_free_fp_per_epoch: Option<i128>;
+        new_min_deposit_to_claim: Option<i128>;
+    }, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>;
     /**
      * Construct and simulate a select_faction transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      * Select a faction for the player
@@ -759,20 +573,7 @@ export interface Client {
     select_faction: ({ player, faction }: {
         player: string;
         faction: u32;
-    }, options?: {
-        /**
-         * The fee to pay for the transaction. Default: BASE_FEE
-         */
-        fee?: number;
-        /**
-         * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-         */
-        timeoutInSeconds?: number;
-        /**
-         * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-         */
-        simulate?: boolean;
-    }) => Promise<AssembledTransaction<Result<void>>>;
+    }, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>;
     /**
      * Construct and simulate a get_epoch_player transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      * Get player's epoch-specific information for any epoch
@@ -809,20 +610,7 @@ export interface Client {
     get_epoch_player: ({ epoch, player }: {
         epoch: u32;
         player: string;
-    }, options?: {
-        /**
-         * The fee to pay for the transaction. Default: BASE_FEE
-         */
-        fee?: number;
-        /**
-         * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-         */
-        timeoutInSeconds?: number;
-        /**
-         * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-         */
-        simulate?: boolean;
-    }) => Promise<AssembledTransaction<Result<EpochPlayer>>>;
+    }, options?: MethodOptions) => Promise<AssembledTransaction<Result<EpochPlayer>>>;
     /**
      * Construct and simulate a get_current_epoch transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      * Get the current epoch number
@@ -830,20 +618,7 @@ export interface Client {
      * # Returns
      * The current epoch number
      */
-    get_current_epoch: (options?: {
-        /**
-         * The fee to pay for the transaction. Default: BASE_FEE
-         */
-        fee?: number;
-        /**
-         * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-         */
-        timeoutInSeconds?: number;
-        /**
-         * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-         */
-        simulate?: boolean;
-    }) => Promise<AssembledTransaction<u32>>;
+    get_current_epoch: (options?: MethodOptions) => Promise<AssembledTransaction<u32>>;
     /**
      * Construct and simulate a claim_epoch_reward transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      * Claim epoch reward for a player for a specific epoch
@@ -867,26 +642,13 @@ export interface Client {
     claim_epoch_reward: ({ player, epoch }: {
         player: string;
         epoch: u32;
-    }, options?: {
-        /**
-         * The fee to pay for the transaction. Default: BASE_FEE
-         */
-        fee?: number;
-        /**
-         * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-         */
-        timeoutInSeconds?: number;
-        /**
-         * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-         */
-        simulate?: boolean;
-    }) => Promise<AssembledTransaction<Result<i128>>>;
+    }, options?: MethodOptions) => Promise<AssembledTransaction<Result<i128>>>;
 }
 export declare class Client extends ContractClient {
     readonly options: ContractClientOptions;
     static deploy<T = Client>(
     /** Constructor/Initialization Args for the contract's `__constructor` method */
-    { admin, fee_vault, soroswap_router, blnd_token, usdc_token, epoch_duration, reserve_token_ids }: {
+    { admin, fee_vault, soroswap_router, blnd_token, usdc_token, epoch_duration, reserve_token_ids, free_fp_per_epoch, min_deposit_to_claim }: {
         admin: string;
         fee_vault: string;
         soroswap_router: string;
@@ -894,6 +656,8 @@ export declare class Client extends ContractClient {
         usdc_token: string;
         epoch_duration: u64;
         reserve_token_ids: Array<u32>;
+        free_fp_per_epoch: i128;
+        min_deposit_to_claim: i128;
     }, 
     /** Options for initializing a Client as well as for calling a method, with extras specific to deploying. */
     options: MethodOptions & Omit<ContractClientOptions, "contractId"> & {

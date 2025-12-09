@@ -98,6 +98,11 @@ fn test_claim_reward_goes_to_vault_not_player_wallet() {
     // Give the blendizzard contract USDC for rewards
     usdc_client.mint(&blendizzard.address, &reward_pool);
 
+    // Give player vault balance to pass deposit gate (required for claiming)
+    let deposit_amount = 10_0000000i128; // 10 USDC
+    usdc_client.mint(&player, &deposit_amount);
+    fee_vault.deposit(&player, &deposit_amount);
+
     // Track player's USDC balance and vault shares BEFORE claim
     let usdc_before = usdc_client.balance(&player);
     let shares_before = fee_vault.get_shares(&player);
@@ -216,6 +221,11 @@ fn test_cannot_claim_twice() {
     });
 
     usdc_client.mint(&blendizzard.address, &reward_pool);
+
+    // Give player vault balance to pass deposit gate (required for claiming)
+    let deposit_amount = 10_0000000i128; // 10 USDC
+    usdc_client.mint(&player, &deposit_amount);
+    fee_vault.deposit(&player, &deposit_amount);
 
     // First claim should succeed
     let first_claim = blendizzard.claim_epoch_reward(&player, &0);

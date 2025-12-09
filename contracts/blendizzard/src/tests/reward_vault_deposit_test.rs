@@ -168,6 +168,11 @@ fn test_claim_reward_deposits_to_vault() {
     // Give the blendizzard contract USDC for rewards
     usdc_client.mint(&blendizzard.address, &reward_pool);
 
+    // Give player vault balance to pass deposit gate (required for claiming)
+    let deposit_amount = 10_0000000i128; // 10 USDC
+    usdc_client.mint(&player1, &deposit_amount);
+    _fee_vault.deposit(&player1, &deposit_amount);
+
     // Track balances BEFORE claim
     let usdc_before = usdc_client.balance(&player1);
     let shares_before = _fee_vault.get_shares(&player1);
@@ -252,6 +257,11 @@ fn test_claim_reward_cannot_claim_twice() {
         crate::storage::set_epoch_player(&env, current_epoch_num, &player1, &epoch_player);
     });
 
+    // Give player vault balance to pass deposit gate (required for claiming)
+    let deposit_amount = 10_0000000i128; // 10 USDC
+    usdc_client.mint(&player1, &deposit_amount);
+    _fee_vault.deposit(&player1, &deposit_amount);
+
     // First claim should succeed
     let first_claim = blendizzard.claim_epoch_reward(&player1, &0);
     assert!(first_claim > 0, "First claim should succeed");
@@ -323,6 +333,13 @@ fn test_claim_reward_proportional_distribution() {
         crate::storage::set_epoch_player(&env, current_epoch_num, &player1, &epoch_player1);
         crate::storage::set_epoch_player(&env, current_epoch_num, &player2, &epoch_player2);
     });
+
+    // Give players vault balance to pass deposit gate (required for claiming)
+    let deposit_amount = 10_0000000i128; // 10 USDC
+    usdc_client.mint(&player1, &deposit_amount);
+    usdc_client.mint(&player2, &deposit_amount);
+    _fee_vault.deposit(&player1, &deposit_amount);
+    _fee_vault.deposit(&player2, &deposit_amount);
 
     // Claim rewards
     let reward1 = blendizzard.claim_epoch_reward(&player1, &0);

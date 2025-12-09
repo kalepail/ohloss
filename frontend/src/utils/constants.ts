@@ -66,7 +66,7 @@ export const USDC_DECIMALS = 7;
 export const BLND_DECIMALS = 7;
 
 // Transaction settings
-export const DEFAULT_FEE = 100000; // Base fee in stroops (0.01 XLM)
+export const DEFAULT_FEE = '100000'; // Base fee in stroops (0.01 XLM)
 
 // Default options for all contract method calls
 // Matches pattern from bunt/e2e-game.ts

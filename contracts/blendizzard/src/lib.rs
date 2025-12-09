@@ -67,6 +67,8 @@ impl Blendizzard {
     /// * `usdc_token` - USDC token address
     /// * `epoch_duration` - Duration of each epoch in seconds (default: 345,600 = 4 days)
     /// * `reserve_token_ids` - Reserve token IDs for claiming BLND emissions (e.g., vec![&env, 1] for reserve 0 b-tokens)
+    /// * `free_fp_per_epoch` - Base FP granted to all players each epoch (enables free play)
+    /// * `min_deposit_to_claim` - Minimum vault balance required to claim rewards (anti-sybil)
     ///
     pub fn __constructor(
         env: Env,
@@ -77,6 +79,8 @@ impl Blendizzard {
         usdc_token: Address,
         epoch_duration: u64,
         reserve_token_ids: Vec<u32>,
+        free_fp_per_epoch: i128,
+        min_deposit_to_claim: i128,
     ) {
         // Create config (admin and pause state stored separately)
         let config = Config {
@@ -86,6 +90,8 @@ impl Blendizzard {
             usdc_token,
             epoch_duration,
             reserve_token_ids,
+            free_fp_per_epoch,
+            min_deposit_to_claim,
         };
 
         // Save config, admin, and pause state (all stored separately for single source of truth)
@@ -140,9 +146,12 @@ impl Blendizzard {
     /// * `new_usdc_token` - New USDC token address (optional)
     /// * `new_epoch_duration` - New epoch duration in seconds (optional)
     /// * `new_reserve_token_ids` - New reserve token IDs for claiming BLND emissions (optional)
+    /// * `new_free_fp_per_epoch` - New base FP for free play (optional)
+    /// * `new_min_deposit_to_claim` - New minimum deposit to claim rewards (optional)
     ///
     /// # Errors
     /// * `NotAdmin` - If caller is not the admin
+    #[allow(clippy::too_many_arguments)]
     pub fn update_config(
         env: Env,
         new_fee_vault: Option<Address>,
@@ -151,6 +160,8 @@ impl Blendizzard {
         new_usdc_token: Option<Address>,
         new_epoch_duration: Option<u64>,
         new_reserve_token_ids: Option<Vec<u32>>,
+        new_free_fp_per_epoch: Option<i128>,
+        new_min_deposit_to_claim: Option<i128>,
     ) -> Result<(), Error> {
         let admin = storage::get_admin(&env);
         admin.require_auth();
@@ -185,6 +196,16 @@ impl Blendizzard {
         // Update reserve token IDs if provided
         if let Some(reserve_ids) = new_reserve_token_ids {
             config.reserve_token_ids = reserve_ids;
+        }
+
+        // Update free FP per epoch if provided
+        if let Some(free_fp) = new_free_fp_per_epoch {
+            config.free_fp_per_epoch = free_fp;
+        }
+
+        // Update min deposit to claim if provided
+        if let Some(min_deposit) = new_min_deposit_to_claim {
+            config.min_deposit_to_claim = min_deposit;
         }
 
         storage::set_config(&env, &config);

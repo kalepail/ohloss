@@ -63,7 +63,8 @@ fn setup_fp_test_env<'a>(
 /// Test FP calculation with zero vault balance
 ///
 /// Edge case: Player has no vault balance when starting game.
-/// Should fail with InsufficientFactionPoints error.
+/// With free play enabled (default), player gets free FP.
+/// To test "insufficient FP", we set free_fp to 0 and wager more than available.
 #[test]
 fn test_fp_with_zero_vault_balance() {
     let env = setup_test_env();
@@ -71,6 +72,9 @@ fn test_fp_with_zero_vault_balance() {
 
     let player1 = Address::generate(&env);
     let player2 = Address::generate(&env);
+
+    // Disable free play for this test to verify zero-balance behavior
+    blendizzard.update_config(&None, &None, &None, &None, &None, &None, &Some(0), &None);
 
     blendizzard.select_faction(&player1, &0); // WholeNoodle
     blendizzard.select_faction(&player2, &1); // PointyStick
@@ -81,7 +85,7 @@ fn test_fp_with_zero_vault_balance() {
 
     env.ledger().with_mut(|li| li.timestamp = 1000);
 
-    // Try to start game with player1 having 0 vault balance
+    // Try to start game with player1 having 0 vault balance and no free FP
     // Should fail with InsufficientFactionPoints (Error #11)
     let result = blendizzard.try_start_game(
         &game_contract,

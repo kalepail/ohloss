@@ -1,5 +1,5 @@
 import { Buffer } from "buffer";
-import { Address } from '@stellar/stellar-sdk';
+import { Address } from "@stellar/stellar-sdk";
 import {
   AssembledTransaction,
   Client as ContractClient,
@@ -7,7 +7,7 @@ import {
   MethodOptions,
   Result,
   Spec as ContractSpec,
-} from '@stellar/stellar-sdk/contract';
+} from "@stellar/stellar-sdk/contract";
 import type {
   u32,
   i32,
@@ -18,12 +18,14 @@ import type {
   u256,
   i256,
   Option,
-} from '@stellar/stellar-sdk/contract';
-export * from '@stellar/stellar-sdk'
-export * as contract from '@stellar/stellar-sdk/contract'
-export * as rpc from '@stellar/stellar-sdk/rpc'
+  Timepoint,
+  Duration,
+} from "@stellar/stellar-sdk/contract";
+export * from "@stellar/stellar-sdk";
+export * as contract from "@stellar/stellar-sdk/contract";
+export * as rpc from "@stellar/stellar-sdk/rpc";
 
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   //@ts-ignore Buffer exists
   window.Buffer = window.Buffer || Buffer;
 }
@@ -52,6 +54,18 @@ epoch_duration: u64;
  * fee-vault-v2 contract address
  */
 fee_vault: string;
+  /**
+ * Base FP granted to all players each epoch regardless of deposit (7 decimals)
+ * Enables "free play" where players can participate without depositing
+ * Default: 100_0000000 (100 FP)
+ */
+free_fp_per_epoch: i128;
+  /**
+ * Minimum vault balance required to claim epoch rewards (7 decimals)
+ * Anti-sybil mechanism: players must deposit to extract value
+ * Default: 1_0000000 (1 USDC)
+ */
+min_deposit_to_claim: i128;
   /**
  * Reserve token IDs for claiming BLND emissions from Blend pool
  * Formula: reserve_index * 2 + token_type
@@ -279,6 +293,10 @@ export const Errors = {
    */
   42: {message:"NotWinningFaction"},
   /**
+   * Player must deposit minimum amount to claim rewards (anti-sybil)
+   */
+  43: {message:"DepositRequiredToClaim"},
+  /**
    * Soroswap swap operation failed
    */
   51: {message:"SwapError"},
@@ -321,43 +339,13 @@ export interface Client {
    * # Errors
    * * `NotAdmin` - If caller is not the admin
    */
-  pause: (options?: {
-    /**
-     * The fee to pay for the transaction. Default: BASE_FEE
-     */
-    fee?: number;
-
-    /**
-     * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-     */
-    timeoutInSeconds?: number;
-
-    /**
-     * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-     */
-    simulate?: boolean;
-  }) => Promise<AssembledTransaction<Result<void>>>
+  pause: (options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
 
   /**
    * Construct and simulate a is_game transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    * Check if a contract is an approved game
    */
-  is_game: ({id}: {id: string}, options?: {
-    /**
-     * The fee to pay for the transaction. Default: BASE_FEE
-     */
-    fee?: number;
-
-    /**
-     * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-     */
-    timeoutInSeconds?: number;
-
-    /**
-     * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-     */
-    simulate?: boolean;
-  }) => Promise<AssembledTransaction<boolean>>
+  is_game: ({id}: {id: string}, options?: MethodOptions) => Promise<AssembledTransaction<boolean>>
 
   /**
    * Construct and simulate a unpause transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -368,22 +356,7 @@ export interface Client {
    * # Errors
    * * `NotAdmin` - If caller is not the admin
    */
-  unpause: (options?: {
-    /**
-     * The fee to pay for the transaction. Default: BASE_FEE
-     */
-    fee?: number;
-
-    /**
-     * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-     */
-    timeoutInSeconds?: number;
-
-    /**
-     * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-     */
-    simulate?: boolean;
-  }) => Promise<AssembledTransaction<Result<void>>>
+  unpause: (options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
 
   /**
    * Construct and simulate a upgrade transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -392,22 +365,7 @@ export interface Client {
    * # Errors
    * * `NotAdmin` - If caller is not the admin
    */
-  upgrade: ({new_wasm_hash}: {new_wasm_hash: Buffer}, options?: {
-    /**
-     * The fee to pay for the transaction. Default: BASE_FEE
-     */
-    fee?: number;
-
-    /**
-     * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-     */
-    timeoutInSeconds?: number;
-
-    /**
-     * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-     */
-    simulate?: boolean;
-  }) => Promise<AssembledTransaction<Result<void>>>
+  upgrade: ({new_wasm_hash}: {new_wasm_hash: Buffer}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
 
   /**
    * Construct and simulate a add_game transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -416,22 +374,7 @@ export interface Client {
    * # Errors
    * * `NotAdmin` - If caller is not the admin
    */
-  add_game: ({id}: {id: string}, options?: {
-    /**
-     * The fee to pay for the transaction. Default: BASE_FEE
-     */
-    fee?: number;
-
-    /**
-     * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-     */
-    timeoutInSeconds?: number;
-
-    /**
-     * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-     */
-    simulate?: boolean;
-  }) => Promise<AssembledTransaction<Result<void>>>
+  add_game: ({id}: {id: string}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
 
   /**
    * Construct and simulate a end_game transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -453,43 +396,13 @@ export interface Client {
    * * `InvalidSessionState` - If session is not Pending
    * * `GameExpired` - If game is from a previous epoch
    */
-  end_game: ({session_id, player1_won}: {session_id: u32, player1_won: boolean}, options?: {
-    /**
-     * The fee to pay for the transaction. Default: BASE_FEE
-     */
-    fee?: number;
-
-    /**
-     * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-     */
-    timeoutInSeconds?: number;
-
-    /**
-     * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-     */
-    simulate?: boolean;
-  }) => Promise<AssembledTransaction<Result<void>>>
+  end_game: ({session_id, player1_won}: {session_id: u32, player1_won: boolean}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
 
   /**
    * Construct and simulate a get_admin transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    * Get the admin address
    */
-  get_admin: (options?: {
-    /**
-     * The fee to pay for the transaction. Default: BASE_FEE
-     */
-    fee?: number;
-
-    /**
-     * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-     */
-    timeoutInSeconds?: number;
-
-    /**
-     * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-     */
-    simulate?: boolean;
-  }) => Promise<AssembledTransaction<string>>
+  get_admin: (options?: MethodOptions) => Promise<AssembledTransaction<string>>
 
   /**
    * Construct and simulate a get_epoch transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -501,43 +414,13 @@ export interface Client {
    * # Errors
    * * `EpochNotFinalized` - If requested epoch doesn't exist
    */
-  get_epoch: ({epoch}: {epoch: u32}, options?: {
-    /**
-     * The fee to pay for the transaction. Default: BASE_FEE
-     */
-    fee?: number;
-
-    /**
-     * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-     */
-    timeoutInSeconds?: number;
-
-    /**
-     * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-     */
-    simulate?: boolean;
-  }) => Promise<AssembledTransaction<Result<EpochInfo>>>
+  get_epoch: ({epoch}: {epoch: u32}, options?: MethodOptions) => Promise<AssembledTransaction<Result<EpochInfo>>>
 
   /**
    * Construct and simulate a is_paused transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    * Check if contract is paused
    */
-  is_paused: (options?: {
-    /**
-     * The fee to pay for the transaction. Default: BASE_FEE
-     */
-    fee?: number;
-
-    /**
-     * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-     */
-    timeoutInSeconds?: number;
-
-    /**
-     * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-     */
-    simulate?: boolean;
-  }) => Promise<AssembledTransaction<boolean>>
+  is_paused: (options?: MethodOptions) => Promise<AssembledTransaction<boolean>>
 
   /**
    * Construct and simulate a set_admin transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -546,43 +429,13 @@ export interface Client {
    * # Errors
    * * `NotAdmin` - If caller is not the current admin
    */
-  set_admin: ({new_admin}: {new_admin: string}, options?: {
-    /**
-     * The fee to pay for the transaction. Default: BASE_FEE
-     */
-    fee?: number;
-
-    /**
-     * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-     */
-    timeoutInSeconds?: number;
-
-    /**
-     * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-     */
-    simulate?: boolean;
-  }) => Promise<AssembledTransaction<Result<void>>>
+  set_admin: ({new_admin}: {new_admin: string}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
 
   /**
    * Construct and simulate a get_config transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    * Get the current configuration
    */
-  get_config: (options?: {
-    /**
-     * The fee to pay for the transaction. Default: BASE_FEE
-     */
-    fee?: number;
-
-    /**
-     * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-     */
-    timeoutInSeconds?: number;
-
-    /**
-     * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-     */
-    simulate?: boolean;
-  }) => Promise<AssembledTransaction<Config>>
+  get_config: (options?: MethodOptions) => Promise<AssembledTransaction<Config>>
 
   /**
    * Construct and simulate a get_player transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -594,22 +447,7 @@ export interface Client {
    * # Errors
    * * `PlayerNotFound` - If player has never interacted with the contract
    */
-  get_player: ({player}: {player: string}, options?: {
-    /**
-     * The fee to pay for the transaction. Default: BASE_FEE
-     */
-    fee?: number;
-
-    /**
-     * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-     */
-    timeoutInSeconds?: number;
-
-    /**
-     * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-     */
-    simulate?: boolean;
-  }) => Promise<AssembledTransaction<Result<Player>>>
+  get_player: ({player}: {player: string}, options?: MethodOptions) => Promise<AssembledTransaction<Result<Player>>>
 
   /**
    * Construct and simulate a start_game transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -626,22 +464,7 @@ export interface Client {
    * * `InsufficientFactionPoints` - If players don't have enough fp
    * * `ContractPaused` - If contract is in emergency pause mode
    */
-  start_game: ({game_id, session_id, player1, player2, player1_wager, player2_wager}: {game_id: string, session_id: u32, player1: string, player2: string, player1_wager: i128, player2_wager: i128}, options?: {
-    /**
-     * The fee to pay for the transaction. Default: BASE_FEE
-     */
-    fee?: number;
-
-    /**
-     * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-     */
-    timeoutInSeconds?: number;
-
-    /**
-     * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-     */
-    simulate?: boolean;
-  }) => Promise<AssembledTransaction<Result<void>>>
+  start_game: ({game_id, session_id, player1, player2, player1_wager, player2_wager}: {game_id: string, session_id: u32, player1: string, player2: string, player1_wager: i128, player2_wager: i128}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
 
   /**
    * Construct and simulate a cycle_epoch transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -659,22 +482,7 @@ export interface Client {
    * * `FeeVaultError` - If fee-vault operations fail
    * * `SwapError` - If BLND → USDC swap fails
    */
-  cycle_epoch: (options?: {
-    /**
-     * The fee to pay for the transaction. Default: BASE_FEE
-     */
-    fee?: number;
-
-    /**
-     * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-     */
-    timeoutInSeconds?: number;
-
-    /**
-     * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-     */
-    simulate?: boolean;
-  }) => Promise<AssembledTransaction<Result<u32>>>
+  cycle_epoch: (options?: MethodOptions) => Promise<AssembledTransaction<Result<u32>>>
 
   /**
    * Construct and simulate a remove_game transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -683,22 +491,7 @@ export interface Client {
    * # Errors
    * * `NotAdmin` - If caller is not the admin
    */
-  remove_game: ({id}: {id: string}, options?: {
-    /**
-     * The fee to pay for the transaction. Default: BASE_FEE
-     */
-    fee?: number;
-
-    /**
-     * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-     */
-    timeoutInSeconds?: number;
-
-    /**
-     * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-     */
-    simulate?: boolean;
-  }) => Promise<AssembledTransaction<Result<void>>>
+  remove_game: ({id}: {id: string}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
 
   /**
    * Construct and simulate a update_config transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -714,26 +507,13 @@ export interface Client {
    * * `new_usdc_token` - New USDC token address (optional)
    * * `new_epoch_duration` - New epoch duration in seconds (optional)
    * * `new_reserve_token_ids` - New reserve token IDs for claiming BLND emissions (optional)
+   * * `new_free_fp_per_epoch` - New base FP for free play (optional)
+   * * `new_min_deposit_to_claim` - New minimum deposit to claim rewards (optional)
    * 
    * # Errors
    * * `NotAdmin` - If caller is not the admin
    */
-  update_config: ({new_fee_vault, new_soroswap_router, new_blnd_token, new_usdc_token, new_epoch_duration, new_reserve_token_ids}: {new_fee_vault: Option<string>, new_soroswap_router: Option<string>, new_blnd_token: Option<string>, new_usdc_token: Option<string>, new_epoch_duration: Option<u64>, new_reserve_token_ids: Option<Array<u32>>}, options?: {
-    /**
-     * The fee to pay for the transaction. Default: BASE_FEE
-     */
-    fee?: number;
-
-    /**
-     * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-     */
-    timeoutInSeconds?: number;
-
-    /**
-     * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-     */
-    simulate?: boolean;
-  }) => Promise<AssembledTransaction<Result<void>>>
+  update_config: ({new_fee_vault, new_soroswap_router, new_blnd_token, new_usdc_token, new_epoch_duration, new_reserve_token_ids, new_free_fp_per_epoch, new_min_deposit_to_claim}: {new_fee_vault: Option<string>, new_soroswap_router: Option<string>, new_blnd_token: Option<string>, new_usdc_token: Option<string>, new_epoch_duration: Option<u64>, new_reserve_token_ids: Option<Array<u32>>, new_free_fp_per_epoch: Option<i128>, new_min_deposit_to_claim: Option<i128>}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
 
   /**
    * Construct and simulate a select_faction transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -750,22 +530,7 @@ export interface Client {
    * # Errors
    * * `InvalidFaction` - If faction ID is not 0, 1, or 2
    */
-  select_faction: ({player, faction}: {player: string, faction: u32}, options?: {
-    /**
-     * The fee to pay for the transaction. Default: BASE_FEE
-     */
-    fee?: number;
-
-    /**
-     * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-     */
-    timeoutInSeconds?: number;
-
-    /**
-     * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-     */
-    simulate?: boolean;
-  }) => Promise<AssembledTransaction<Result<void>>>
+  select_faction: ({player, faction}: {player: string, faction: u32}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
 
   /**
    * Construct and simulate a get_epoch_player transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -800,22 +565,7 @@ export interface Client {
    * * `FactionNotSelected` - If querying current epoch and player hasn't selected faction
    * * `PlayerNot
    */
-  get_epoch_player: ({epoch, player}: {epoch: u32, player: string}, options?: {
-    /**
-     * The fee to pay for the transaction. Default: BASE_FEE
-     */
-    fee?: number;
-
-    /**
-     * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-     */
-    timeoutInSeconds?: number;
-
-    /**
-     * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-     */
-    simulate?: boolean;
-  }) => Promise<AssembledTransaction<Result<EpochPlayer>>>
+  get_epoch_player: ({epoch, player}: {epoch: u32, player: string}, options?: MethodOptions) => Promise<AssembledTransaction<Result<EpochPlayer>>>
 
   /**
    * Construct and simulate a get_current_epoch transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -824,22 +574,7 @@ export interface Client {
    * # Returns
    * The current epoch number
    */
-  get_current_epoch: (options?: {
-    /**
-     * The fee to pay for the transaction. Default: BASE_FEE
-     */
-    fee?: number;
-
-    /**
-     * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-     */
-    timeoutInSeconds?: number;
-
-    /**
-     * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-     */
-    simulate?: boolean;
-  }) => Promise<AssembledTransaction<u32>>
+  get_current_epoch: (options?: MethodOptions) => Promise<AssembledTransaction<u32>>
 
   /**
    * Construct and simulate a claim_epoch_reward transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -861,28 +596,13 @@ export interface Client {
    * * `NoRewardsAvailable` - If player has no rewards to claim
    * * `ContractPaused` - If contract is in emergency pause mode
    */
-  claim_epoch_reward: ({player, epoch}: {player: string, epoch: u32}, options?: {
-    /**
-     * The fee to pay for the transaction. Default: BASE_FEE
-     */
-    fee?: number;
-
-    /**
-     * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-     */
-    timeoutInSeconds?: number;
-
-    /**
-     * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-     */
-    simulate?: boolean;
-  }) => Promise<AssembledTransaction<Result<i128>>>
+  claim_epoch_reward: ({player, epoch}: {player: string, epoch: u32}, options?: MethodOptions) => Promise<AssembledTransaction<Result<i128>>>
 
 }
 export class Client extends ContractClient {
   static async deploy<T = Client>(
         /** Constructor/Initialization Args for the contract's `__constructor` method */
-        {admin, fee_vault, soroswap_router, blnd_token, usdc_token, epoch_duration, reserve_token_ids}: {admin: string, fee_vault: string, soroswap_router: string, blnd_token: string, usdc_token: string, epoch_duration: u64, reserve_token_ids: Array<u32>},
+        {admin, fee_vault, soroswap_router, blnd_token, usdc_token, epoch_duration, reserve_token_ids, free_fp_per_epoch, min_deposit_to_claim}: {admin: string, fee_vault: string, soroswap_router: string, blnd_token: string, usdc_token: string, epoch_duration: u64, reserve_token_ids: Array<u32>, free_fp_per_epoch: i128, min_deposit_to_claim: i128},
     /** Options for initializing a Client as well as for calling a method, with extras specific to deploying. */
     options: MethodOptions &
       Omit<ContractClientOptions, "contractId"> & {
@@ -894,7 +614,7 @@ export class Client extends ContractClient {
         format?: "hex" | "base64";
       }
   ): Promise<AssembledTransaction<T>> {
-    return ContractClient.deploy({admin, fee_vault, soroswap_router, blnd_token, usdc_token, epoch_duration, reserve_token_ids}, options)
+    return ContractClient.deploy({admin, fee_vault, soroswap_router, blnd_token, usdc_token, epoch_duration, reserve_token_ids, free_fp_per_epoch, min_deposit_to_claim}, options)
   }
   constructor(public readonly options: ContractClientOptions) {
     super(
@@ -914,18 +634,18 @@ export class Client extends ContractClient {
         "AAAAAAAAAYZDeWNsZSB0byB0aGUgbmV4dCBlcG9jaAoKRmluYWxpemVzIGN1cnJlbnQgZXBvY2ggKGRldGVybWluZXMgd2lubmVyLCB3aXRoZHJhd3MgQkxORCwgc3dhcHMgdG8gVVNEQywKc2V0cyByZXdhcmQgcG9vbCkgYW5kIG9wZW5zIG5leHQgZXBvY2guCgojIFJldHVybnMKVGhlIG5ldyBlcG9jaCBudW1iZXIKCiMgRXJyb3JzCiogYEVwb2NoTm90UmVhZHlgIC0gSWYgbm90IGVub3VnaCB0aW1lIGhhcyBwYXNzZWQKKiBgRXBvY2hBbHJlYWR5RmluYWxpemVkYCAtIElmIGN1cnJlbnQgZXBvY2ggaXMgYWxyZWFkeSBmaW5hbGl6ZWQKKiBgRmVlVmF1bHRFcnJvcmAgLSBJZiBmZWUtdmF1bHQgb3BlcmF0aW9ucyBmYWlsCiogYFN3YXBFcnJvcmAgLSBJZiBCTE5EIOKGkiBVU0RDIHN3YXAgZmFpbHMAAAAAAAtjeWNsZV9lcG9jaAAAAAAAAAAAAQAAA+kAAAAEAAAAAw==",
         "AAAAAAAAAGFSZW1vdmUgYSBnYW1lIGNvbnRyYWN0IGZyb20gdGhlIGFwcHJvdmVkIGxpc3QKCiMgRXJyb3JzCiogYE5vdEFkbWluYCAtIElmIGNhbGxlciBpcyBub3QgdGhlIGFkbWluAAAAAAAAC3JlbW92ZV9nYW1lAAAAAAEAAAAAAAAAAmlkAAAAAAATAAAAAQAAA+kAAAPtAAAAAAAAAAM=",
         "AAAAAAAAAAAAAAAMX19jaGVja19hdXRoAAAAAwAAAAAAAAARc2lnbmF0dXJlX3BheWxvYWQAAAAAAAPuAAAAIAAAAAAAAAAJc2lnbmF0dXJlAAAAAAAD6AAAAAAAAAAAAAAADWF1dGhfY29udGV4dHMAAAAAAAPqAAAH0AAAAAdDb250ZXh0AAAAAAEAAAPpAAAD7QAAAAAAAAAD",
-        "AAAAAAAAAilJbml0aWFsaXplIHRoZSBjb250cmFjdAoKU2V0cyB1cCB0aGUgYWRtaW4sIGV4dGVybmFsIGNvbnRyYWN0IGFkZHJlc3NlcywgYW5kIGNyZWF0ZXMgdGhlIGZpcnN0IGVwb2NoLgoKIyBBcmd1bWVudHMKKiBgYWRtaW5gIC0gQWRtaW4gYWRkcmVzcyAoY2FuIG1vZGlmeSBjb25maWcgYW5kIHVwZ3JhZGUgY29udHJhY3QpCiogYGZlZV92YXVsdGAgLSBmZWUtdmF1bHQtdjIgY29udHJhY3QgYWRkcmVzcwoqIGBzb3Jvc3dhcF9yb3V0ZXJgIC0gU29yb3N3YXAgcm91dGVyIGNvbnRyYWN0IGFkZHJlc3MKKiBgYmxuZF90b2tlbmAgLSBCTE5EIHRva2VuIGFkZHJlc3MKKiBgdXNkY190b2tlbmAgLSBVU0RDIHRva2VuIGFkZHJlc3MKKiBgZXBvY2hfZHVyYXRpb25gIC0gRHVyYXRpb24gb2YgZWFjaCBlcG9jaCBpbiBzZWNvbmRzIChkZWZhdWx0OiAzNDUsNjAwID0gNCBkYXlzKQoqIGByZXNlcnZlX3Rva2VuX2lkc2AgLSBSZXNlcnZlIHRva2VuIElEcyBmb3IgY2xhaW1pbmcgQkxORCBlbWlzc2lvbnMgKGUuZy4sIHZlYyFbJmVudiwgMV0gZm9yIHJlc2VydmUgMCBiLXRva2VucykKAAAAAAAADV9fY29uc3RydWN0b3IAAAAAAAAHAAAAAAAAAAVhZG1pbgAAAAAAABMAAAAAAAAACWZlZV92YXVsdAAAAAAAABMAAAAAAAAAD3Nvcm9zd2FwX3JvdXRlcgAAAAATAAAAAAAAAApibG5kX3Rva2VuAAAAAAATAAAAAAAAAAp1c2RjX3Rva2VuAAAAAAATAAAAAAAAAA5lcG9jaF9kdXJhdGlvbgAAAAAABgAAAAAAAAARcmVzZXJ2ZV90b2tlbl9pZHMAAAAAAAPqAAAABAAAAAA=",
-        "AAAAAAAAAmFVcGRhdGUgZ2xvYmFsIGNvbmZpZ3VyYXRpb24KCkFsbG93cyBhZG1pbiB0byB1cGRhdGUgc3BlY2lmaWMgY29uZmlndXJhdGlvbiBwYXJhbWV0ZXJzLgpPbmx5IHVwZGF0ZXMgcGFyYW1ldGVycyB0aGF0IGFyZSBwcm92aWRlZCAobm9uLU5vbmUpLgoKIyBBcmd1bWVudHMKKiBgbmV3X2ZlZV92YXVsdGAgLSBOZXcgZmVlLXZhdWx0LXYyIGNvbnRyYWN0IGFkZHJlc3MgKG9wdGlvbmFsKQoqIGBuZXdfc29yb3N3YXBfcm91dGVyYCAtIE5ldyBTb3Jvc3dhcCByb3V0ZXIgY29udHJhY3QgYWRkcmVzcyAob3B0aW9uYWwpCiogYG5ld19ibG5kX3Rva2VuYCAtIE5ldyBCTE5EIHRva2VuIGFkZHJlc3MgKG9wdGlvbmFsKQoqIGBuZXdfdXNkY190b2tlbmAgLSBOZXcgVVNEQyB0b2tlbiBhZGRyZXNzIChvcHRpb25hbCkKKiBgbmV3X2Vwb2NoX2R1cmF0aW9uYCAtIE5ldyBlcG9jaCBkdXJhdGlvbiBpbiBzZWNvbmRzIChvcHRpb25hbCkKKiBgbmV3X3Jlc2VydmVfdG9rZW5faWRzYCAtIE5ldyByZXNlcnZlIHRva2VuIElEcyBmb3IgY2xhaW1pbmcgQkxORCBlbWlzc2lvbnMgKG9wdGlvbmFsKQoKIyBFcnJvcnMKKiBgTm90QWRtaW5gIC0gSWYgY2FsbGVyIGlzIG5vdCB0aGUgYWRtaW4AAAAAAAANdXBkYXRlX2NvbmZpZwAAAAAAAAYAAAAAAAAADW5ld19mZWVfdmF1bHQAAAAAAAPoAAAAEwAAAAAAAAATbmV3X3Nvcm9zd2FwX3JvdXRlcgAAAAPoAAAAEwAAAAAAAAAObmV3X2JsbmRfdG9rZW4AAAAAA+gAAAATAAAAAAAAAA5uZXdfdXNkY190b2tlbgAAAAAD6AAAABMAAAAAAAAAEm5ld19lcG9jaF9kdXJhdGlvbgAAAAAD6AAAAAYAAAAAAAAAFW5ld19yZXNlcnZlX3Rva2VuX2lkcwAAAAAAA+gAAAPqAAAABAAAAAEAAAPpAAAD7QAAAAAAAAAD",
+        "AAAAAAAAAtdJbml0aWFsaXplIHRoZSBjb250cmFjdAoKU2V0cyB1cCB0aGUgYWRtaW4sIGV4dGVybmFsIGNvbnRyYWN0IGFkZHJlc3NlcywgYW5kIGNyZWF0ZXMgdGhlIGZpcnN0IGVwb2NoLgoKIyBBcmd1bWVudHMKKiBgYWRtaW5gIC0gQWRtaW4gYWRkcmVzcyAoY2FuIG1vZGlmeSBjb25maWcgYW5kIHVwZ3JhZGUgY29udHJhY3QpCiogYGZlZV92YXVsdGAgLSBmZWUtdmF1bHQtdjIgY29udHJhY3QgYWRkcmVzcwoqIGBzb3Jvc3dhcF9yb3V0ZXJgIC0gU29yb3N3YXAgcm91dGVyIGNvbnRyYWN0IGFkZHJlc3MKKiBgYmxuZF90b2tlbmAgLSBCTE5EIHRva2VuIGFkZHJlc3MKKiBgdXNkY190b2tlbmAgLSBVU0RDIHRva2VuIGFkZHJlc3MKKiBgZXBvY2hfZHVyYXRpb25gIC0gRHVyYXRpb24gb2YgZWFjaCBlcG9jaCBpbiBzZWNvbmRzIChkZWZhdWx0OiAzNDUsNjAwID0gNCBkYXlzKQoqIGByZXNlcnZlX3Rva2VuX2lkc2AgLSBSZXNlcnZlIHRva2VuIElEcyBmb3IgY2xhaW1pbmcgQkxORCBlbWlzc2lvbnMgKGUuZy4sIHZlYyFbJmVudiwgMV0gZm9yIHJlc2VydmUgMCBiLXRva2VucykKKiBgZnJlZV9mcF9wZXJfZXBvY2hgIC0gQmFzZSBGUCBncmFudGVkIHRvIGFsbCBwbGF5ZXJzIGVhY2ggZXBvY2ggKGVuYWJsZXMgZnJlZSBwbGF5KQoqIGBtaW5fZGVwb3NpdF90b19jbGFpbWAgLSBNaW5pbXVtIHZhdWx0IGJhbGFuY2UgcmVxdWlyZWQgdG8gY2xhaW0gcmV3YXJkcyAoYW50aS1zeWJpbCkKAAAAAA1fX2NvbnN0cnVjdG9yAAAAAAAACQAAAAAAAAAFYWRtaW4AAAAAAAATAAAAAAAAAAlmZWVfdmF1bHQAAAAAAAATAAAAAAAAAA9zb3Jvc3dhcF9yb3V0ZXIAAAAAEwAAAAAAAAAKYmxuZF90b2tlbgAAAAAAEwAAAAAAAAAKdXNkY190b2tlbgAAAAAAEwAAAAAAAAAOZXBvY2hfZHVyYXRpb24AAAAAAAYAAAAAAAAAEXJlc2VydmVfdG9rZW5faWRzAAAAAAAD6gAAAAQAAAAAAAAAEWZyZWVfZnBfcGVyX2Vwb2NoAAAAAAAACwAAAAAAAAAUbWluX2RlcG9zaXRfdG9fY2xhaW0AAAALAAAAAA==",
+        "AAAAAAAAAvFVcGRhdGUgZ2xvYmFsIGNvbmZpZ3VyYXRpb24KCkFsbG93cyBhZG1pbiB0byB1cGRhdGUgc3BlY2lmaWMgY29uZmlndXJhdGlvbiBwYXJhbWV0ZXJzLgpPbmx5IHVwZGF0ZXMgcGFyYW1ldGVycyB0aGF0IGFyZSBwcm92aWRlZCAobm9uLU5vbmUpLgoKIyBBcmd1bWVudHMKKiBgbmV3X2ZlZV92YXVsdGAgLSBOZXcgZmVlLXZhdWx0LXYyIGNvbnRyYWN0IGFkZHJlc3MgKG9wdGlvbmFsKQoqIGBuZXdfc29yb3N3YXBfcm91dGVyYCAtIE5ldyBTb3Jvc3dhcCByb3V0ZXIgY29udHJhY3QgYWRkcmVzcyAob3B0aW9uYWwpCiogYG5ld19ibG5kX3Rva2VuYCAtIE5ldyBCTE5EIHRva2VuIGFkZHJlc3MgKG9wdGlvbmFsKQoqIGBuZXdfdXNkY190b2tlbmAgLSBOZXcgVVNEQyB0b2tlbiBhZGRyZXNzIChvcHRpb25hbCkKKiBgbmV3X2Vwb2NoX2R1cmF0aW9uYCAtIE5ldyBlcG9jaCBkdXJhdGlvbiBpbiBzZWNvbmRzIChvcHRpb25hbCkKKiBgbmV3X3Jlc2VydmVfdG9rZW5faWRzYCAtIE5ldyByZXNlcnZlIHRva2VuIElEcyBmb3IgY2xhaW1pbmcgQkxORCBlbWlzc2lvbnMgKG9wdGlvbmFsKQoqIGBuZXdfZnJlZV9mcF9wZXJfZXBvY2hgIC0gTmV3IGJhc2UgRlAgZm9yIGZyZWUgcGxheSAob3B0aW9uYWwpCiogYG5ld19taW5fZGVwb3NpdF90b19jbGFpbWAgLSBOZXcgbWluaW11bSBkZXBvc2l0IHRvIGNsYWltIHJld2FyZHMgKG9wdGlvbmFsKQoKIyBFcnJvcnMKKiBgTm90QWRtaW5gIC0gSWYgY2FsbGVyIGlzIG5vdCB0aGUgYWRtaW4AAAAAAAANdXBkYXRlX2NvbmZpZwAAAAAAAAgAAAAAAAAADW5ld19mZWVfdmF1bHQAAAAAAAPoAAAAEwAAAAAAAAATbmV3X3Nvcm9zd2FwX3JvdXRlcgAAAAPoAAAAEwAAAAAAAAAObmV3X2JsbmRfdG9rZW4AAAAAA+gAAAATAAAAAAAAAA5uZXdfdXNkY190b2tlbgAAAAAD6AAAABMAAAAAAAAAEm5ld19lcG9jaF9kdXJhdGlvbgAAAAAD6AAAAAYAAAAAAAAAFW5ld19yZXNlcnZlX3Rva2VuX2lkcwAAAAAAA+gAAAPqAAAABAAAAAAAAAAVbmV3X2ZyZWVfZnBfcGVyX2Vwb2NoAAAAAAAD6AAAAAsAAAAAAAAAGG5ld19taW5fZGVwb3NpdF90b19jbGFpbQAAA+gAAAALAAAAAQAAA+kAAAPtAAAAAAAAAAM=",
         "AAAAAAAAAdpTZWxlY3QgYSBmYWN0aW9uIGZvciB0aGUgcGxheWVyCgpTZXRzIHRoZSBwbGF5ZXIncyBwZXJzaXN0ZW50IGZhY3Rpb24gcHJlZmVyZW5jZS4gQ2FuIGJlIGNoYW5nZWQgYXQgQU5ZIHRpbWUuCklmIHlvdSBoYXZlbid0IHBsYXllZCBhIGdhbWUgdGhpcyBlcG9jaCwgdGhlIG5ldyBmYWN0aW9uIGFwcGxpZXMgaW1tZWRpYXRlbHkuCklmIHlvdSd2ZSBhbHJlYWR5IHBsYXllZCB0aGlzIGVwb2NoLCB0aGUgY3VycmVudCBlcG9jaCBzdGF5cyBsb2NrZWQgdG8geW91cgpvbGQgZmFjdGlvbiwgYW5kIHRoZSBuZXcgc2VsZWN0aW9uIGFwcGxpZXMgc3RhcnRpbmcgbmV4dCBlcG9jaC4KCiMgQXJndW1lbnRzCiogYGZhY3Rpb25gIC0gRmFjdGlvbiBJRCAoMD1XaG9sZU5vb2RsZSwgMT1Qb2ludHlTdGljaywgMj1TcGVjaWFsUm9jaykKCiMgRXJyb3JzCiogYEludmFsaWRGYWN0aW9uYCAtIElmIGZhY3Rpb24gSUQgaXMgbm90IDAsIDEsIG9yIDIAAAAAAA5zZWxlY3RfZmFjdGlvbgAAAAAAAgAAAAAAAAAGcGxheWVyAAAAAAATAAAAAAAAAAdmYWN0aW9uAAAAAAQAAAABAAAD6QAAA+0AAAAAAAAAAw==",
         "AAAAAAAABABHZXQgcGxheWVyJ3MgZXBvY2gtc3BlY2lmaWMgaW5mb3JtYXRpb24gZm9yIGFueSBlcG9jaAoKUmV0dXJucyBjb21wbGV0ZSBlcG9jaC1zcGVjaWZpYyBkYXRhIGluY2x1ZGluZyBsb2NrZWQgZmFjdGlvbiwgYXZhaWxhYmxlIEZQLAp0b3RhbCBGUCBjb250cmlidXRlZCwgYW5kIGJhbGFuY2Ugc25hcHNob3QuIENvbnNpc3RlbnQgd2l0aCBgZ2V0X2Vwb2NoKGVwb2NoKWAKd2hpY2ggYWxzbyByZXF1aXJlcyBhbiBlcG9jaCBwYXJhbWV0ZXIuCgoqKkJlaGF2aW9yIGZvciBjdXJyZW50IGVwb2NoOioqIElmIHBsYXllciBoYXNuJ3QgcGxheWVkIGFueSBnYW1lcyB0aGlzIGVwb2NoIHlldCwKY2FsY3VsYXRlcyB3aGF0IHRoZWlyIEZQIFdPVUxEIGJlIGJhc2VkIG9uIGN1cnJlbnQgdmF1bHQgYmFsYW5jZSB3aXRob3V0IHdyaXRpbmcKdG8gc3RvcmFnZS4gVGhpcyBhbGxvd3MgVUlzIHRvIGRpc3BsYXkgRlAgYmVmb3JlIHRoZSBwbGF5ZXIncyBmaXJzdCBnYW1lLgoKKipCZWhhdmlvciBmb3IgaGlzdG9yaWNhbCBlcG9jaHM6KiogT25seSByZXR1cm5zIGRhdGEgaWYgcGxheWVyIHBhcnRpY2lwYXRlZCBpbgp0aGF0IGVwb2NoIChwbGF5ZWQgYXQgbGVhc3Qgb25lIGdhbWUpLgoKIyBBcmd1bWVudHMKKiBgZXBvY2hgIC0gRXBvY2ggbnVtYmVyIHRvIHF1ZXJ5CiogYHBsYXllcmAgLSBQbGF5ZXIgYWRkcmVzcwoKIyBFeGFtcGxlcwpgYGBpZ25vcmUKLy8gQ3VycmVudCBlcG9jaApsZXQgY3VycmVudCA9IGNvbnRyYWN0LmdldF9jdXJyZW50X2Vwb2NoKCk7CmxldCBwbGF5ZXJfZGF0YSA9IGNvbnRyYWN0LmdldF9lcG9jaF9wbGF5ZXIoJmN1cnJlbnQsICZwbGF5ZXIpPzsKCi8vIEhpc3RvcmljYWwgZXBvY2gKbGV0IGVwb2NoMF9kYXRhID0gY29udHJhY3QuZ2V0X2Vwb2NoX3BsYXllcigmMCwgJnBsYXllcik/OwpgYGAKCiMgRXJyb3JzCiogYEZhY3Rpb25Ob3RTZWxlY3RlZGAgLSBJZiBxdWVyeWluZyBjdXJyZW50IGVwb2NoIGFuZCBwbGF5ZXIgaGFzbid0IHNlbGVjdGVkIGZhY3Rpb24KKiBgUGxheWVyTm90AAAAEGdldF9lcG9jaF9wbGF5ZXIAAAACAAAAAAAAAAVlcG9jaAAAAAAAAAQAAAAAAAAABnBsYXllcgAAAAAAEwAAAAEAAAPpAAAH0AAAAAtFcG9jaFBsYXllcgAAAAAD",
         "AAAAAAAAAEBHZXQgdGhlIGN1cnJlbnQgZXBvY2ggbnVtYmVyCgojIFJldHVybnMKVGhlIGN1cnJlbnQgZXBvY2ggbnVtYmVyAAAAEWdldF9jdXJyZW50X2Vwb2NoAAAAAAAAAAAAAAEAAAAE",
         "AAAAAAAAAqxDbGFpbSBlcG9jaCByZXdhcmQgZm9yIGEgcGxheWVyIGZvciBhIHNwZWNpZmljIGVwb2NoCgpQbGF5ZXJzIHdobyBjb250cmlidXRlZCBGUCB0byB0aGUgd2lubmluZyBmYWN0aW9uIGNhbiBjbGFpbSB0aGVpciBzaGFyZQpvZiB0aGUgZXBvY2gncyByZXdhcmQgcG9vbCAoVVNEQyBjb252ZXJ0ZWQgZnJvbSBCTE5EIHlpZWxkKS4KCioqTm90ZToqKiBUbyBjaGVjayBjbGFpbWFibGUgYW1vdW50cyBvciBjbGFpbSBzdGF0dXMgYmVmb3JlIGNhbGxpbmcsCnVzZSB0cmFuc2FjdGlvbiBzaW11bGF0aW9uLiBUaGlzIGlzIHRoZSBpZGlvbWF0aWMgU29yb2JhbiBwYXR0ZXJuLgoKIyBSZXR1cm5zCkFtb3VudCBvZiBVU0RDIGNsYWltZWQKCiMgRXJyb3JzCiogYEVwb2NoTm90RmluYWxpemVkYCAtIElmIGVwb2NoIGRvZXNuJ3QgZXhpc3Qgb3IgaXNuJ3QgZmluYWxpemVkCiogYFJld2FyZEFscmVhZHlDbGFpbWVkYCAtIElmIHBsYXllciBhbHJlYWR5IGNsYWltZWQgZm9yIHRoaXMgZXBvY2gKKiBgTm90V2lubmluZ0ZhY3Rpb25gIC0gSWYgcGxheWVyIHdhc24ndCBpbiB0aGUgd2lubmluZyBmYWN0aW9uCiogYE5vUmV3YXJkc0F2YWlsYWJsZWAgLSBJZiBwbGF5ZXIgaGFzIG5vIHJld2FyZHMgdG8gY2xhaW0KKiBgQ29udHJhY3RQYXVzZWRgIC0gSWYgY29udHJhY3QgaXMgaW4gZW1lcmdlbmN5IHBhdXNlIG1vZGUAAAASY2xhaW1fZXBvY2hfcmV3YXJkAAAAAAACAAAAAAAAAAZwbGF5ZXIAAAAAABMAAAAAAAAABWVwb2NoAAAAAAAABAAAAAEAAAPpAAAACwAAAAM=",
-        "AAAAAQAAAOhHbG9iYWwgY29uZmlndXJhdGlvbgoKU3RvcmVzIGNvbnRyYWN0IGNvbmZpZ3VyYXRpb24gcGFyYW1ldGVycy4KTm90ZTogQWRtaW4gYWRkcmVzcyBpcyBzdG9yZWQgc2VwYXJhdGVseSB2aWEgRGF0YUtleTo6QWRtaW4gZm9yIHNpbmdsZSBzb3VyY2Ugb2YgdHJ1dGguCk5vdGU6IFBhdXNlIHN0YXRlIGlzIHN0b3JlZCBzZXBhcmF0ZWx5IHZpYSBEYXRhS2V5OjpQYXVzZWQgZm9yIGVmZmljaWVudCBhY2Nlc3MuAAAAAAAAAAZDb25maWcAAAAAAAYAAAASQkxORCB0b2tlbiBhZGRyZXNzAAAAAAAKYmxuZF90b2tlbgAAAAAAEwAAAEVEdXJhdGlvbiBvZiBlYWNoIGVwb2NoIGluIHNlY29uZHMgKGRlZmF1bHQ6IDQgZGF5cyA9IDM0NSw2MDAgc2Vjb25kcykAAAAAAAAOZXBvY2hfZHVyYXRpb24AAAAAAAYAAAAdZmVlLXZhdWx0LXYyIGNvbnRyYWN0IGFkZHJlc3MAAAAAAAAJZmVlX3ZhdWx0AAAAAAAAEwAAAM5SZXNlcnZlIHRva2VuIElEcyBmb3IgY2xhaW1pbmcgQkxORCBlbWlzc2lvbnMgZnJvbSBCbGVuZCBwb29sCkZvcm11bGE6IHJlc2VydmVfaW5kZXggKiAyICsgdG9rZW5fdHlwZQp0b2tlbl90eXBlOiAwID0gZGVidCB0b2tlbiwgMSA9IGItdG9rZW4gKHN1cHBsaWVycykKRXhhbXBsZTogRm9yIHJlc2VydmUgMCBiLXRva2VucyAoc3VwcGxpZXJzKSwgdXNlIFsxXQAAAAAAEXJlc2VydmVfdG9rZW5faWRzAAAAAAAD6gAAAAQAAAAgU29yb3N3YXAgcm91dGVyIGNvbnRyYWN0IGFkZHJlc3MAAAAPc29yb3N3YXBfcm91dGVyAAAAABMAAAASVVNEQyB0b2tlbiBhZGRyZXNzAAAAAAAKdXNkY190b2tlbgAAAAAAEw==",
+        "AAAAAQAAAOhHbG9iYWwgY29uZmlndXJhdGlvbgoKU3RvcmVzIGNvbnRyYWN0IGNvbmZpZ3VyYXRpb24gcGFyYW1ldGVycy4KTm90ZTogQWRtaW4gYWRkcmVzcyBpcyBzdG9yZWQgc2VwYXJhdGVseSB2aWEgRGF0YUtleTo6QWRtaW4gZm9yIHNpbmdsZSBzb3VyY2Ugb2YgdHJ1dGguCk5vdGU6IFBhdXNlIHN0YXRlIGlzIHN0b3JlZCBzZXBhcmF0ZWx5IHZpYSBEYXRhS2V5OjpQYXVzZWQgZm9yIGVmZmljaWVudCBhY2Nlc3MuAAAAAAAAAAZDb25maWcAAAAAAAgAAAASQkxORCB0b2tlbiBhZGRyZXNzAAAAAAAKYmxuZF90b2tlbgAAAAAAEwAAAEVEdXJhdGlvbiBvZiBlYWNoIGVwb2NoIGluIHNlY29uZHMgKGRlZmF1bHQ6IDQgZGF5cyA9IDM0NSw2MDAgc2Vjb25kcykAAAAAAAAOZXBvY2hfZHVyYXRpb24AAAAAAAYAAAAdZmVlLXZhdWx0LXYyIGNvbnRyYWN0IGFkZHJlc3MAAAAAAAAJZmVlX3ZhdWx0AAAAAAAAEwAAAK9CYXNlIEZQIGdyYW50ZWQgdG8gYWxsIHBsYXllcnMgZWFjaCBlcG9jaCByZWdhcmRsZXNzIG9mIGRlcG9zaXQgKDcgZGVjaW1hbHMpCkVuYWJsZXMgImZyZWUgcGxheSIgd2hlcmUgcGxheWVycyBjYW4gcGFydGljaXBhdGUgd2l0aG91dCBkZXBvc2l0aW5nCkRlZmF1bHQ6IDEwMF8wMDAwMDAwICgxMDAgRlApAAAAABFmcmVlX2ZwX3Blcl9lcG9jaAAAAAAAAAsAAACaTWluaW11bSB2YXVsdCBiYWxhbmNlIHJlcXVpcmVkIHRvIGNsYWltIGVwb2NoIHJld2FyZHMgKDcgZGVjaW1hbHMpCkFudGktc3liaWwgbWVjaGFuaXNtOiBwbGF5ZXJzIG11c3QgZGVwb3NpdCB0byBleHRyYWN0IHZhbHVlCkRlZmF1bHQ6IDFfMDAwMDAwMCAoMSBVU0RDKQAAAAAAFG1pbl9kZXBvc2l0X3RvX2NsYWltAAAACwAAAM5SZXNlcnZlIHRva2VuIElEcyBmb3IgY2xhaW1pbmcgQkxORCBlbWlzc2lvbnMgZnJvbSBCbGVuZCBwb29sCkZvcm11bGE6IHJlc2VydmVfaW5kZXggKiAyICsgdG9rZW5fdHlwZQp0b2tlbl90eXBlOiAwID0gZGVidCB0b2tlbiwgMSA9IGItdG9rZW4gKHN1cHBsaWVycykKRXhhbXBsZTogRm9yIHJlc2VydmUgMCBiLXRva2VucyAoc3VwcGxpZXJzKSwgdXNlIFsxXQAAAAAAEXJlc2VydmVfdG9rZW5faWRzAAAAAAAD6gAAAAQAAAAgU29yb3N3YXAgcm91dGVyIGNvbnRyYWN0IGFkZHJlc3MAAAAPc29yb3N3YXBfcm91dGVyAAAAABMAAAASVVNEQyB0b2tlbiBhZGRyZXNzAAAAAAAKdXNkY190b2tlbgAAAAAAEw==",
         "AAAAAQAAAJdQZXJzaXN0ZW50IHBsYXllciBkYXRhIChhY3Jvc3MgYWxsIGVwb2NocykKClN0b3JlcyB0aGUgcGxheWVyJ3MgZmFjdGlvbiBwcmVmZXJlbmNlIGFuZCB0aW1lIG11bHRpcGxpZXIgdHJhY2tpbmcuClRoaXMgcGVyc2lzdHMgYWNyb3NzIGVwb2NoIGJvdW5kYXJpZXMuAAAAAAAAAAAGUGxheWVyAAAAAAADAAAAeVBsYXllcidzIHZhdWx0IGJhbGFuY2UgZnJvbSB0aGUgcHJldmlvdXMgZXBvY2ggKGZvciBjcm9zcy1lcG9jaCBjb21wYXJpc29uKQpVc2VkIHRvIGRldGVjdCA+NTAlIHdpdGhkcmF3YWwgYmV0d2VlbiBlcG9jaHMAAAAAAAASbGFzdF9lcG9jaF9iYWxhbmNlAAAAAAALAAAASVRoZSBwbGF5ZXIncyBwZXJzaXN0ZW50IGZhY3Rpb24gc2VsZWN0aW9uIChjYW4gYmUgY2hhbmdlZCBiZXR3ZWVuIGVwb2NocykAAAAAAAAQc2VsZWN0ZWRfZmFjdGlvbgAAAAQAAAC0VGltZXN0YW1wIHdoZW4gdGhlIHRpbWUgbXVsdGlwbGllciBjYWxjdWxhdGlvbiBzdGFydGVkClNldCB3aGVuIHBsYXllciBwbGF5cyB0aGVpciBmaXJzdCBnYW1lICh3aXRoIHZhdWx0IGJhbGFuY2UgPiAwKQpSZXNldCB0byBjdXJyZW50IHRpbWUgaWYgcGxheWVyIHdpdGhkcmF3cyA+NTAlIGJldHdlZW4gZXBvY2hzAAAAFXRpbWVfbXVsdGlwbGllcl9zdGFydAAAAAAAAAY=",
         "AAAAAQAAAF9FcG9jaCBtZXRhZGF0YQoKU3RvcmVzIGFsbCBpbmZvcm1hdGlvbiBhYm91dCBhbiBlcG9jaCBpbmNsdWRpbmcgdGltaW5nLCBzdGFuZGluZ3MsIGFuZCByZXdhcmRzLgAAAAAAAAAACUVwb2NoSW5mbwAAAAAAAAYAAABBVW5peCB0aW1lc3RhbXAgd2hlbiB0aGlzIGVwb2NoIGVuZHMgKHN0YXJ0X3RpbWUgKyBlcG9jaF9kdXJhdGlvbikAAAAAAAAIZW5kX3RpbWUAAAAGAAAAXk1hcCBvZiBmYWN0aW9uX2lkIC0+IHRvdGFsIGZwIGNvbnRyaWJ1dGVkIGJ5IGFsbCBwbGF5ZXJzClVzZWQgdG8gZGV0ZXJtaW5lIHRoZSB3aW5uaW5nIGZhY3Rpb24AAAAAABFmYWN0aW9uX3N0YW5kaW5ncwAAAAAAA+wAAAAEAAAACwAAADBUcnVlIGlmIGVwb2NoIGhhcyBiZWVuIGZpbmFsaXplZCB2aWEgY3ljbGVfZXBvY2gAAAAMaXNfZmluYWxpemVkAAAAAQAAAEVUb3RhbCBVU0RDIGF2YWlsYWJsZSBmb3IgcmV3YXJkIGRpc3RyaWJ1dGlvbiAoc2V0IGR1cmluZyBjeWNsZV9lcG9jaCkAAAAAAAALcmV3YXJkX3Bvb2wAAAAACwAAACZVbml4IHRpbWVzdGFtcCB3aGVuIHRoaXMgZXBvY2ggc3RhcnRlZAAAAAAACnN0YXJ0X3RpbWUAAAAAAAYAAAAzVGhlIHdpbm5pbmcgZmFjdGlvbiAoTm9uZSB1bnRpbCBlcG9jaCBpcyBmaW5hbGl6ZWQpAAAAAA93aW5uaW5nX2ZhY3Rpb24AAAAD6AAAAAQ=",
         "AAAAAQAAANpQZXItZXBvY2ggcGxheWVyIGRhdGEKCkNyZWF0ZWQgd2hlbiBhIHBsYXllciBmaXJzdCBpbnRlcmFjdHMgd2l0aCB0aGUgY29udHJhY3QgaW4gYSBuZXcgZXBvY2guClRyYWNrcyBmYWN0aW9uIHBvaW50cyBhbmQgZXBvY2gtc3BlY2lmaWMgZmFjdGlvbiBsb2NrLgpGUCBpcyBjYWxjdWxhdGVkIG9uY2UgYXQgZmlyc3QgZ2FtZSBvZiBlcG9jaCBiYXNlZCBvbiB2YXVsdCBiYWxhbmNlLgAAAAAAAAAAAAtFcG9jaFBsYXllcgAAAAAEAAAAeEF2YWlsYWJsZSBmYWN0aW9uIHBvaW50cyAobm90IGxvY2tlZCBpbiBnYW1lcykKQ2FsY3VsYXRlZCBvbmNlIGF0IGZpcnN0IGdhbWUgb2YgZXBvY2ggYW5kIHJlbWFpbnMgdmFsaWQgdW50aWwgbmV4dCBlcG9jaAAAAAxhdmFpbGFibGVfZnAAAAALAAAAeFBsYXllcidzIHZhdWx0IGJhbGFuY2Ugc25hcHNob3QgYXQgZmlyc3QgZ2FtZSBvZiB0aGlzIGVwb2NoCkNhcHR1cmVzIHRoZSB2YXVsdCBiYWxhbmNlIHVzZWQgdG8gY2FsY3VsYXRlIHRoaXMgZXBvY2gncyBGUAAAABZlcG9jaF9iYWxhbmNlX3NuYXBzaG90AAAAAAALAAAAbFRoZSBmYWN0aW9uIGxvY2tlZCBpbiBmb3IgdGhpcyBlcG9jaCAobG9ja2VkIG9uIGZpcnN0IGdhbWUpCk5vbmUgPSBub3QgeWV0IGxvY2tlZCwgU29tZShmYWN0aW9uX2lkKSA9IGxvY2tlZAAAAA1lcG9jaF9mYWN0aW9uAAAAAAAD6AAAAAQAAABsVG90YWwgZmFjdGlvbiBwb2ludHMgY29udHJpYnV0ZWQgdG8gdGhlIHBsYXllcidzIGZhY3Rpb24gdGhpcyBlcG9jaApVc2VkIGZvciByZXdhcmQgZGlzdHJpYnV0aW9uIGNhbGN1bGF0aW9uAAAAFHRvdGFsX2ZwX2NvbnRyaWJ1dGVkAAAACw==",
         "AAAAAQAAAIZHYW1lIHNlc3Npb24gdHJhY2tpbmcKCkNyZWF0ZWQgd2hlbiBhIGdhbWUgc3RhcnRzLCB1cGRhdGVkIHdoZW4gaXQgZW5kcy4KVHJhY2tzIGFsbCBnYW1lIHN0YXRlIGluY2x1ZGluZyBwbGF5ZXJzLCB3YWdlcnMsIGFuZCBvdXRjb21lLgAAAAAAAAAAAAtHYW1lU2Vzc2lvbgAAAAAHAAAAYEVwb2NoIHdoZW4gdGhpcyBnYW1lIHdhcyBjcmVhdGVkClVzZWQgdG8gcHJldmVudCBnYW1lcyBmcm9tIGJlaW5nIGNvbXBsZXRlZCBpbiBhIGRpZmZlcmVudCBlcG9jaAAAAAhlcG9jaF9pZAAAAAQAAAAcQWRkcmVzcyBvZiB0aGUgZ2FtZSBjb250cmFjdAAAAAdnYW1lX2lkAAAAABMAAAAWRmlyc3QgcGxheWVyJ3MgYWRkcmVzcwAAAAAAB3BsYXllcjEAAAAAEwAAACFGYWN0aW9uIHBvaW50cyB3YWdlcmVkIGJ5IHBsYXllcjEAAAAAAAANcGxheWVyMV93YWdlcgAAAAAAAAsAAABdV2lubmVyIG9mIHRoZSBnYW1lIChOb25lID0gcGVuZGluZywgU29tZSA9IGNvbXBsZXRlZCkKdHJ1ZSA9IHBsYXllcjEgd29uLCBmYWxzZSA9IHBsYXllcjIgd29uAAAAAAAAC3BsYXllcjFfd29uAAAAA+gAAAABAAAAF1NlY29uZCBwbGF5ZXIncyBhZGRyZXNzAAAAAAdwbGF5ZXIyAAAAABMAAAAhRmFjdGlvbiBwb2ludHMgd2FnZXJlZCBieSBwbGF5ZXIyAAAAAAAADXBsYXllcjJfd2FnZXIAAAAAAAAL",
-        "AAAABAAAALdFcnJvciBjb2RlcyBmb3IgdGhlIEJsZW5kaXp6YXJkIGNvbnRyYWN0CgpBbGwgZXJyb3JzIGFyZSByZXByZXNlbnRlZCBhcyB1MzIgdmFsdWVzIGZvciBlZmZpY2llbnQgc3RvcmFnZSBhbmQgdHJhbnNtaXNzaW9uLgpFcnJvciBjb2RlcyBhcmUgZ3JvdXBlZCBieSBjYXRlZ29yeSBmb3IgYmV0dGVyIG9yZ2FuaXphdGlvbi4AAAAAAAAAAAVFcnJvcgAAAAAAABYAAAA+UGxheWVyIGhhcyBpbnN1ZmZpY2llbnQgZmFjdGlvbiBwb2ludHMgZm9yIHRoZSByZXF1ZXN0ZWQgd2FnZXIAAAAAABlJbnN1ZmZpY2llbnRGYWN0aW9uUG9pbnRzAAAAAAAACwAAACpBbW91bnQgaXMgaW52YWxpZCAoZS5nLiwgemVybyBvciBuZWdhdGl2ZSkAAAAAAA1JbnZhbGlkQW1vdW50AAAAAAAADAAAACpGYWN0aW9uIElEIGlzIGludmFsaWQgKG11c3QgYmUgMCwgMSwgb3IgMikAAAAAAA5JbnZhbGlkRmFjdGlvbgAAAAAADQAAAEFQbGF5ZXIncyBmYWN0aW9uIGlzIGFscmVhZHkgbG9ja2VkIGZvciB0aGlzIGVwb2NoIChjYW5ub3QgY2hhbmdlKQAAAAAAABRGYWN0aW9uQWxyZWFkeUxvY2tlZAAAAA4AAAA3UGxheWVyIGRvZXMgbm90IGV4aXN0IChubyBkZXBvc2l0cyBvciBpbnRlcmFjdGlvbnMgeWV0KQAAAAAOUGxheWVyTm90Rm91bmQAAAAAAA8AAAAxUGxheWVyIG11c3Qgc2VsZWN0IGEgZmFjdGlvbiBiZWZvcmUgcGxheWluZyBnYW1lcwAAAAAAABJGYWN0aW9uTm90U2VsZWN0ZWQAAAAAABAAAAAlR2FtZSBjb250cmFjdCBpcyBub3QgaW4gdGhlIHdoaXRlbGlzdAAAAAAAABJHYW1lTm90V2hpdGVsaXN0ZWQAAAAAABQAAAAaR2FtZSBzZXNzaW9uIHdhcyBub3QgZm91bmQAAAAAAA9TZXNzaW9uTm90Rm91bmQAAAAAFQAAAChHYW1lIHNlc3Npb24gd2l0aCB0aGlzIElEIGFscmVhZHkgZXhpc3RzAAAAFFNlc3Npb25BbHJlYWR5RXhpc3RzAAAAFgAAADZHYW1lIHNlc3Npb24gaXMgaW4gYW4gaW52YWxpZCBzdGF0ZSBmb3IgdGhpcyBvcGVyYXRpb24AAAAAABNJbnZhbGlkU2Vzc2lvblN0YXRlAAAAABcAAAAcR2FtZSBvdXRjb21lIGRhdGEgaXMgaW52YWxpZAAAABJJbnZhbGlkR2FtZU91dGNvbWUAAAAAABgAAAA1R2FtZSBpcyBmcm9tIGEgcHJldmlvdXMgZXBvY2ggYW5kIGNhbm5vdCBiZSBjb21wbGV0ZWQAAAAAAAALR2FtZUV4cGlyZWQAAAAAGQAAACBFcG9jaCBoYXMgbm90IGJlZW4gZmluYWxpemVkIHlldAAAABFFcG9jaE5vdEZpbmFsaXplZAAAAAAAAB4AAAAgRXBvY2ggaGFzIGFscmVhZHkgYmVlbiBmaW5hbGl6ZWQAAAAVRXBvY2hBbHJlYWR5RmluYWxpemVkAAAAAAAAHwAAADdFcG9jaCBjYW5ub3QgYmUgY3ljbGVkIHlldCAobm90IGVub3VnaCB0aW1lIGhhcyBwYXNzZWQpAAAAAA1FcG9jaE5vdFJlYWR5AAAAAAAAIAAAADJObyByZXdhcmRzIGF2YWlsYWJsZSBmb3IgdGhpcyBwbGF5ZXIgaW4gdGhpcyBlcG9jaAAAAAAAEk5vUmV3YXJkc0F2YWlsYWJsZQAAAAAAKAAAAC5SZXdhcmQgaGFzIGFscmVhZHkgYmVlbiBjbGFpbWVkIGZvciB0aGlzIGVwb2NoAAAAAAAUUmV3YXJkQWxyZWFkeUNsYWltZWQAAAApAAAANFBsYXllciB3YXMgbm90IGluIHRoZSB3aW5uaW5nIGZhY3Rpb24gZm9yIHRoaXMgZXBvY2gAAAARTm90V2lubmluZ0ZhY3Rpb24AAAAAAAAqAAAAHlNvcm9zd2FwIHN3YXAgb3BlcmF0aW9uIGZhaWxlZAAAAAAACVN3YXBFcnJvcgAAAAAAADMAAAAcQXJpdGhtZXRpYyBvdmVyZmxvdyBvY2N1cnJlZAAAAA1PdmVyZmxvd0Vycm9yAAAAAAAAPAAAABpEaXZpc2lvbiBieSB6ZXJvIGF0dGVtcHRlZAAAAAAADkRpdmlzaW9uQnlaZXJvAAAAAAA9AAAALUNvbnRyYWN0IGlzIHBhdXNlZCAoZW1lcmdlbmN5IHN0b3AgYWN0aXZhdGVkKQAAAAAAAA5Db250cmFjdFBhdXNlZAAAAAAARg==",
+        "AAAABAAAALdFcnJvciBjb2RlcyBmb3IgdGhlIEJsZW5kaXp6YXJkIGNvbnRyYWN0CgpBbGwgZXJyb3JzIGFyZSByZXByZXNlbnRlZCBhcyB1MzIgdmFsdWVzIGZvciBlZmZpY2llbnQgc3RvcmFnZSBhbmQgdHJhbnNtaXNzaW9uLgpFcnJvciBjb2RlcyBhcmUgZ3JvdXBlZCBieSBjYXRlZ29yeSBmb3IgYmV0dGVyIG9yZ2FuaXphdGlvbi4AAAAAAAAAAAVFcnJvcgAAAAAAABcAAAA+UGxheWVyIGhhcyBpbnN1ZmZpY2llbnQgZmFjdGlvbiBwb2ludHMgZm9yIHRoZSByZXF1ZXN0ZWQgd2FnZXIAAAAAABlJbnN1ZmZpY2llbnRGYWN0aW9uUG9pbnRzAAAAAAAACwAAACpBbW91bnQgaXMgaW52YWxpZCAoZS5nLiwgemVybyBvciBuZWdhdGl2ZSkAAAAAAA1JbnZhbGlkQW1vdW50AAAAAAAADAAAACpGYWN0aW9uIElEIGlzIGludmFsaWQgKG11c3QgYmUgMCwgMSwgb3IgMikAAAAAAA5JbnZhbGlkRmFjdGlvbgAAAAAADQAAAEFQbGF5ZXIncyBmYWN0aW9uIGlzIGFscmVhZHkgbG9ja2VkIGZvciB0aGlzIGVwb2NoIChjYW5ub3QgY2hhbmdlKQAAAAAAABRGYWN0aW9uQWxyZWFkeUxvY2tlZAAAAA4AAAA3UGxheWVyIGRvZXMgbm90IGV4aXN0IChubyBkZXBvc2l0cyBvciBpbnRlcmFjdGlvbnMgeWV0KQAAAAAOUGxheWVyTm90Rm91bmQAAAAAAA8AAAAxUGxheWVyIG11c3Qgc2VsZWN0IGEgZmFjdGlvbiBiZWZvcmUgcGxheWluZyBnYW1lcwAAAAAAABJGYWN0aW9uTm90U2VsZWN0ZWQAAAAAABAAAAAlR2FtZSBjb250cmFjdCBpcyBub3QgaW4gdGhlIHdoaXRlbGlzdAAAAAAAABJHYW1lTm90V2hpdGVsaXN0ZWQAAAAAABQAAAAaR2FtZSBzZXNzaW9uIHdhcyBub3QgZm91bmQAAAAAAA9TZXNzaW9uTm90Rm91bmQAAAAAFQAAAChHYW1lIHNlc3Npb24gd2l0aCB0aGlzIElEIGFscmVhZHkgZXhpc3RzAAAAFFNlc3Npb25BbHJlYWR5RXhpc3RzAAAAFgAAADZHYW1lIHNlc3Npb24gaXMgaW4gYW4gaW52YWxpZCBzdGF0ZSBmb3IgdGhpcyBvcGVyYXRpb24AAAAAABNJbnZhbGlkU2Vzc2lvblN0YXRlAAAAABcAAAAcR2FtZSBvdXRjb21lIGRhdGEgaXMgaW52YWxpZAAAABJJbnZhbGlkR2FtZU91dGNvbWUAAAAAABgAAAA1R2FtZSBpcyBmcm9tIGEgcHJldmlvdXMgZXBvY2ggYW5kIGNhbm5vdCBiZSBjb21wbGV0ZWQAAAAAAAALR2FtZUV4cGlyZWQAAAAAGQAAACBFcG9jaCBoYXMgbm90IGJlZW4gZmluYWxpemVkIHlldAAAABFFcG9jaE5vdEZpbmFsaXplZAAAAAAAAB4AAAAgRXBvY2ggaGFzIGFscmVhZHkgYmVlbiBmaW5hbGl6ZWQAAAAVRXBvY2hBbHJlYWR5RmluYWxpemVkAAAAAAAAHwAAADdFcG9jaCBjYW5ub3QgYmUgY3ljbGVkIHlldCAobm90IGVub3VnaCB0aW1lIGhhcyBwYXNzZWQpAAAAAA1FcG9jaE5vdFJlYWR5AAAAAAAAIAAAADJObyByZXdhcmRzIGF2YWlsYWJsZSBmb3IgdGhpcyBwbGF5ZXIgaW4gdGhpcyBlcG9jaAAAAAAAEk5vUmV3YXJkc0F2YWlsYWJsZQAAAAAAKAAAAC5SZXdhcmQgaGFzIGFscmVhZHkgYmVlbiBjbGFpbWVkIGZvciB0aGlzIGVwb2NoAAAAAAAUUmV3YXJkQWxyZWFkeUNsYWltZWQAAAApAAAANFBsYXllciB3YXMgbm90IGluIHRoZSB3aW5uaW5nIGZhY3Rpb24gZm9yIHRoaXMgZXBvY2gAAAARTm90V2lubmluZ0ZhY3Rpb24AAAAAAAAqAAAAQFBsYXllciBtdXN0IGRlcG9zaXQgbWluaW11bSBhbW91bnQgdG8gY2xhaW0gcmV3YXJkcyAoYW50aS1zeWJpbCkAAAAWRGVwb3NpdFJlcXVpcmVkVG9DbGFpbQAAAAAAKwAAAB5Tb3Jvc3dhcCBzd2FwIG9wZXJhdGlvbiBmYWlsZWQAAAAAAAlTd2FwRXJyb3IAAAAAAAAzAAAAHEFyaXRobWV0aWMgb3ZlcmZsb3cgb2NjdXJyZWQAAAANT3ZlcmZsb3dFcnJvcgAAAAAAADwAAAAaRGl2aXNpb24gYnkgemVybyBhdHRlbXB0ZWQAAAAAAA5EaXZpc2lvbkJ5WmVybwAAAAAAPQAAAC1Db250cmFjdCBpcyBwYXVzZWQgKGVtZXJnZW5jeSBzdG9wIGFjdGl2YXRlZCkAAAAAAAAOQ29udHJhY3RQYXVzZWQAAAAAAEY=",
         "AAAABQAAAAAAAAAAAAAACUdhbWVBZGRlZAAAAAAAAAEAAAAKZ2FtZV9hZGRlZAAAAAAAAQAAAAAAAAAHZ2FtZV9pZAAAAAATAAAAAAAAAAI=",
         "AAAABQAAAAAAAAAAAAAACUdhbWVFbmRlZAAAAAAAAAEAAAAKZ2FtZV9lbmRlZAAAAAAABQAAAAAAAAAHZ2FtZV9pZAAAAAATAAAAAQAAAAAAAAAKc2Vzc2lvbl9pZAAAAAAABAAAAAEAAAAAAAAABndpbm5lcgAAAAAAEwAAAAAAAAAAAAAABWxvc2VyAAAAAAAAEwAAAAAAAAAAAAAADmZwX2NvbnRyaWJ1dGVkAAAAAAALAAAAAAAAAAI=",
         "AAAABQAAAAAAAAAAAAAAC0Vwb2NoQ3ljbGVkAAAAAAEAAAAMZXBvY2hfY3ljbGVkAAAABAAAAAAAAAAJb2xkX2Vwb2NoAAAAAAAABAAAAAAAAAAAAAAACW5ld19lcG9jaAAAAAAAAAQAAAAAAAAAAAAAAA93aW5uaW5nX2ZhY3Rpb24AAAAABAAAAAAAAAAAAAAAC3Jld2FyZF9wb29sAAAAAAsAAAAAAAAAAg==",

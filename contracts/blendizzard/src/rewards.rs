@@ -16,6 +16,11 @@ use crate::types::SCALAR_7;
 /// Players who contributed FP to the winning faction can claim their share
 /// of the epoch's reward pool (USDC converted from BLND yield).
 ///
+/// **Free Play Gate:** Players must have a minimum vault deposit to claim rewards.
+/// This is an anti-sybil mechanism that prevents farming with free accounts.
+/// Free players can participate and contribute to faction standings, but must
+/// deposit to unlock their reward share.
+///
 /// **Important:** The reward is automatically deposited into the fee-vault on behalf
 /// of the player, not transferred directly. This means:
 /// 1. USDC is transferred from contract → player
@@ -40,6 +45,7 @@ use crate::types::SCALAR_7;
 /// Amount of USDC claimed and deposited into fee-vault
 ///
 /// # Errors
+/// * `DepositRequiredToClaim` - If player's vault balance is below minimum threshold
 /// * `EpochNotFinalized` - If epoch doesn't exist or isn't finalized
 /// * `RewardAlreadyClaimed` - If player already claimed for this epoch
 /// * `NotWinningFaction` - If player wasn't in the winning faction
@@ -47,6 +53,14 @@ use crate::types::SCALAR_7;
 pub(crate) fn claim_epoch_reward(env: &Env, player: &Address, epoch: u32) -> Result<i128, Error> {
     // Authenticate player
     player.require_auth();
+
+    // Check minimum deposit requirement for claiming (anti-sybil gate)
+    let vault_balance = crate::vault::get_vault_balance(env, player);
+    let config = storage::get_config(env);
+
+    if vault_balance < config.min_deposit_to_claim {
+        return Err(Error::DepositRequiredToClaim);
+    }
 
     // Check if already claimed
     if storage::has_claimed(env, player, epoch) {

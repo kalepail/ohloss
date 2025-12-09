@@ -14,13 +14,21 @@ use crate::types::{
 
 /// Calculate faction points for a player in the current epoch
 ///
-/// **NEW ARCHITECTURE:** Queries vault balance instead of using cached Player.total_deposited
+/// **FREE PLAY ARCHITECTURE:** All players receive a base free FP allocation each epoch,
+/// plus additional FP calculated from their vault deposit (if any).
 ///
-/// # Base Formula
+/// # Formula
 /// ```
-/// fp = (base_deposit_amount * 100) * amount_multiplier(deposit_amount) * time_multiplier(time_held)
+/// total_fp = free_fp_per_epoch + deposit_fp
+/// deposit_fp = (deposit_amount * 100) * amount_multiplier * time_multiplier
 /// ```
 /// Where: **1 USDC = 100 FP** (before multipliers)
+///
+/// # Free Play Mechanics
+/// - All players receive `config.free_fp_per_epoch` FP each epoch (default: 100 FP)
+/// - Players can participate in games without depositing
+/// - Deposit-based FP is additive (stacks on top of free FP)
+/// - Rewards require minimum deposit to claim (anti-sybil)
 ///
 /// # Smooth Piecewise Multiplier System (Cubic Hermite Splines)
 ///
@@ -40,14 +48,14 @@ use crate::types::{
 /// - Smooth cubic interpolation with zero derivatives at endpoints
 ///
 /// **Combined at target**: 2.449 × 2.449 ≈ 6.0x
-/// **Result**: Target players ($1k, 35d) get 600 FP per $1
+/// **Result**: Target players ($1k, 35d) get 600 FP per $1 + 100 free FP
 ///
 /// # Arguments
 /// * `env` - Contract environment
 /// * `player` - Player to calculate FP for
 ///
 /// # Returns
-/// Total faction points for the player
+/// Total faction points for the player (free FP + deposit FP)
 ///
 /// # Errors
 /// * `OverflowError` - If calculation overflows
@@ -55,15 +63,18 @@ pub(crate) fn calculate_faction_points(env: &Env, player: &Address) -> Result<i1
     // Get player data
     let player_data = storage::get_player(env, player).ok_or(Error::PlayerNotFound)?;
 
-    // NEW: Query vault balance instead of using cached total_deposited
+    // Get config for free FP allocation
+    let config = storage::get_config(env);
+
+    // Query vault balance
     let base_amount = crate::vault::get_vault_balance(env, player);
 
-    // If no deposit, no faction points
+    // If no deposit, return only the free FP allocation
     if base_amount == 0 {
-        return Ok(0);
+        return Ok(config.free_fp_per_epoch);
     }
 
-    // Calculate amount multiplier
+    // Calculate deposit-based FP with multipliers
     // MVP: Assumes USDC deposits only (1:1 with USD)
     // Future: Add oracle support for multi-asset deposits with price feeds
     let amount_mult = calculate_amount_multiplier(base_amount)?;
@@ -71,10 +82,16 @@ pub(crate) fn calculate_faction_points(env: &Env, player: &Address) -> Result<i1
     // Calculate time multiplier
     let time_mult = calculate_time_multiplier(env, player_data.time_multiplier_start)?;
 
-    // Calculate final FP: base_amount * amount_mult * time_mult
-    let fp = calculate_fp_from_multipliers(base_amount, amount_mult, time_mult)?;
+    // Calculate deposit FP: base_amount * amount_mult * time_mult
+    let deposit_fp = calculate_fp_from_multipliers(base_amount, amount_mult, time_mult)?;
 
-    Ok(fp)
+    // Total FP = free FP + deposit FP (additive)
+    let total_fp = config
+        .free_fp_per_epoch
+        .checked_add(deposit_fp)
+        .ok_or(Error::OverflowError)?;
+
+    Ok(total_fp)
 }
 
 /// Calculate amount multiplier using smooth piecewise (cubic Hermite spline)
