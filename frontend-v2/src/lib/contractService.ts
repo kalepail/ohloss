@@ -709,17 +709,17 @@ export async function fetchPlayerRewards(
       epochPlayer.total_fp_contributed > 0n
     ) {
       // Calculate estimated reward
-      const winningFactionFp: bigint =
-        epochInfo.faction_standings.get(winningFaction) ?? 1n
-      const estimatedReward: bigint =
-        (epochPlayer.total_fp_contributed * epochInfo.reward_pool) / winningFactionFp
+      const playerFp = BigInt(epochPlayer.total_fp_contributed)
+      const rewardPool = BigInt(epochInfo.reward_pool)
+      const winningFactionFp = BigInt(epochInfo.faction_standings.get(winningFaction) ?? 1)
+      const estimatedReward = (playerFp * rewardPool) / winningFactionFp
 
       if (estimatedReward > 0n) {
         rewards.push({
           epoch,
           amount: estimatedReward,
           faction: playerFaction as number,
-          fpContributed: epochPlayer.total_fp_contributed,
+          fpContributed: playerFp,
         })
       }
     }
@@ -807,21 +807,24 @@ export async function fetchDevRewards(
       if (!epochInfo) continue
 
       // Check if epoch is finalized and game has contributions
+      const gameFp = BigInt(epochGame.total_fp_contributed)
+      const totalGameFp = BigInt(epochInfo.total_game_fp)
+      const devRewardPool = BigInt(epochInfo.dev_reward_pool)
+
       if (
         epochInfo.is_finalized &&
-        epochGame.total_fp_contributed > 0n &&
-        epochInfo.total_game_fp > 0n
+        gameFp > 0n &&
+        totalGameFp > 0n
       ) {
         // Calculate estimated dev reward: (game_fp / total_game_fp) * dev_reward_pool
-        const estimatedReward: bigint =
-          (epochGame.total_fp_contributed * epochInfo.dev_reward_pool) / epochInfo.total_game_fp
+        const estimatedReward = (gameFp * devRewardPool) / totalGameFp
 
         if (estimatedReward > 0n) {
           rewards.push({
             epoch: meta.epoch,
             gameAddress: meta.gameAddress,
             amount: estimatedReward,
-            fpContributed: epochGame.total_fp_contributed,
+            fpContributed: gameFp,
           })
         }
       }
