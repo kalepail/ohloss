@@ -43,11 +43,12 @@ worker/              # Cloudflare Worker for API proxy (keeps secrets server-sid
 
 ## MCP Tools
 
-When researching smart-account-kit or Stellar/Soroban:
-- **context7**: `resolve-library-id` + `get-library-docs` for SDK documentation
-- **deepwiki**: `ask_question("OpenZeppelin/stellar-contracts", "...")` for smart account architecture
-- **cloudflare**: `search_cloudflare_documentation` for Workers/Pages issues
-- **perplexity**: For recent Stellar/Soroban updates or debugging
+When researching frontend technologies:
+- **context7**: `resolve-library-id` + `get-library-docs` for SDK documentation (stellar-sdk, react, zustand)
+- **deepwiki**: `ask_question("repo/name", "...")` for understanding external repos
+- **cloudflare**: `search_cloudflare_documentation` for Workers/Pages deployment
+- **perplexity**: For recent updates, debugging, or best practices
+- **github**: `get_file_contents` for reading source code from external repos
 
 ## Environment
 

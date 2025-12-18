@@ -1,4 +1,6 @@
-# Blendizzard Frontend
+# Blendizzard Frontend (Legacy)
+
+> **Note**: This frontend is **legacy**. See `frontend-v2/` for the current passkey-based smart wallet implementation.
 
 A React + TypeScript frontend for the Blendizzard faction-based competitive gaming protocol on Stellar Soroban.
 

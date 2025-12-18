@@ -51,15 +51,13 @@ soroban-fixed-point-math = { git = "https://github.com/kalepail/soroban-fixed-po
 ### Example Research Process:
 ```bash
 # 1. Search for latest version
-WebSearch("soroban-sdk latest release 2025")
+perplexity: search("soroban-sdk latest release 2025")
 
-# 2. Check if crate is compatible
-rust-docs: cache_crate_from_cratesio("package-name", "version")
+# 2. Get library documentation
+context7: resolve-library-id("stellar-sdk")
+context7: get-library-docs(libraryId, topic="contracts")
 
-# 3. Review documentation
-rust-docs: structure("package-name", "version")
-
-# 4. Check for examples
+# 3. Check for examples in repos
 github: search_code("package-name soroban language:rust")
 ```
 
@@ -162,19 +160,20 @@ stellar contract deploy \
 
 ```
 contracts/blendizzard/src/
-├── lib.rs              # Main contract entry point
+├── lib.rs              # Main contract entry point (27 exported functions)
 ├── types.rs            # Shared data structures and enums
-├── test.rs             # Integration tests
-└── [modules]
-    ├── storage.rs      # Storage utilities
-    ├── vault.rs        # Vault balance queries and cross-epoch comparison
-    ├── faction.rs      # Faction management
-    ├── faction_points.rs  # FP calculation with multipliers
-    ├── game.rs         # Game lifecycle (start/end) with epoch initialization
-    ├── epoch.rs        # Epoch cycling and management
-    ├── rewards.rs      # Reward distribution
-    ├── events.rs       # Event definitions
-    └── errors.rs       # Error definitions
+├── storage.rs          # Storage utilities and TTL management
+├── vault.rs            # Vault balance queries and cross-epoch comparison
+├── faction.rs          # Faction management
+├── faction_points.rs   # FP calculation with multipliers
+├── game.rs             # Game lifecycle (start/end) with epoch initialization
+├── epoch.rs            # Epoch cycling and management
+├── rewards.rs          # Reward distribution
+├── events.rs           # Event definitions (#[contractevent])
+├── errors.rs           # Error definitions
+├── fee_vault_v2.rs     # Fee vault client interface
+├── router.rs           # Soroswap router client interface
+└── tests/              # Comprehensive test suite (21 test files)
 ```
 
 **Note**: `vault.rs` no longer contains deposit/withdraw methods. It provides:
@@ -349,43 +348,34 @@ import { Contract } from './bindings/blendizzard';
 
 const contract = new Contract({
   contractId: 'C...',
-  networkPassphrase: 'Test SDF Network ; September 2015',
-  rpcUrl: 'https://soroban-testnet.stellar.org',
+  networkPassphrase: 'Public Global Stellar Network ; September 2015',
+  rpcUrl: 'https://rpc.lightsail.network',
 });
 
 // Type-safe contract calls
-await contract.deposit({
-  player: userAddress,
-  amount: BigInt(1000_0000000), // 1000 USDC (7 decimals)
-});
+const player = await contract.get_player({ player: userAddress });
+const epochPlayer = await contract.get_epoch_player({ player: userAddress, epoch: 1 });
 ```
 
-## Implementation Phases
+## Implementation Status
 
-Current phase: **Phase 1 - Core MVP**
+**Current state: Live on Mainnet**
 
-### Phase 1 Checklist (Weeks 1-3)
-- [ ] Contract initialization and admin functions
-- [ ] Vault deposit/withdraw integration (no multipliers)
-- [ ] Faction selection (persistent only)
-- [ ] Basic FP calculation (1:1 with deposit)
-- [ ] Game registry (add/remove/is_game)
-- [ ] Simple game lifecycle (start/end with oracle verification)
-- [ ] Manual epoch cycling (admin-triggered)
-- [ ] Basic tests for all functions
-
-### Phase 2 (Weeks 4-6)
-- Full multiplier implementation
-- Deposit reset logic
-- Epoch faction locking
-- BLND → USDC conversion
-- Reward claiming
-
-### Phase 3 (Weeks 7-8)
-- Gas optimization
+### Completed
+- Contract initialization and admin functions
+- Fee-vault integration (players deposit directly to fee-vault-v2)
+- Faction selection and epoch locking
+- FP calculation with asymptotic multipliers
+- Game registry (add/remove/is_game)
+- Game lifecycle (start/end with multi-sig authorization)
+- Epoch cycling with BLND → USDC conversion
+- Reward distribution and claiming
 - Emergency pause mechanism
-- Security audit
-- Production deployment
+- TTL storage management
+
+### In Progress
+- Security audit (external)
+- Multiplier system optimization (see fp_simulations/RECOMMENDATIONS.md)
 
 ## MCP Tools and Research Workflow
 
@@ -393,32 +383,19 @@ Current phase: **Phase 1 - Core MVP**
 
 ### Key MCP Tools
 
-#### rust-docs - Primary tool for Rust/Soroban API research
-**Use when:** Understanding soroban-sdk APIs, soroban-fixed-point-math, or any Rust crate
+#### context7 - Library documentation
+**Use when:** Understanding library APIs, getting code examples
 
-**Common workflow:**
 ```bash
-# 1. Cache the crate (only needed once)
-cache_crate_from_cratesio("soroban-sdk", "23.1.0")
-cache_crate_from_cratesio("soroban-fixed-point-math", "1.3.0")
+# Find library ID
+context7: resolve-library-id("stellar-sdk")
 
-# 2. Get high-level structure
-structure("soroban-sdk", "23.1.0")
+# Get documentation with code examples
+context7: get-library-docs("/stellar/js-stellar-sdk", topic="contract", mode="code")
 
-# 3. Search for items (lightweight preview)
-search_items_preview("soroban-sdk", "23.1.0", "Map")
-
-# 4. Get full details for specific items
-get_item_details("soroban-sdk", "23.1.0", <item_id>)
-
-# 5. View source code examples
-get_item_source("soroban-sdk", "23.1.0", <item_id>)
+# Get conceptual/architectural info
+context7: get-library-docs("/stellar/js-stellar-sdk", mode="info")
 ```
-
-**Examples:**
-- "How does `Map::set()` work?" → Use rust-docs
-- "What are the parameters for `fixed_mul_floor()`?" → Use rust-docs
-- "How do I create a `Symbol`?" → Use rust-docs
 
 #### github - Read external contract source code
 **Use when:** Understanding fee-vault-v2, Soroswap, or any GitHub repository
@@ -427,12 +404,10 @@ get_item_source("soroban-sdk", "23.1.0", <item_id>)
 - `get_file_contents("script3", "fee-vault-v2", "src/vault.rs")` - Read specific files
 - `search_code("soroban-sdk Map usage language:rust")` - Find code patterns
 - `list_commits("script3", "fee-vault-v2")` - Check recent changes
-- `search_repositories("stellar soroban examples")` - Find example projects
 
 **Examples:**
 - "How does fee-vault handle deposits?" → Read the source file
 - "Find examples of cross-contract calls" → Search Stellar repos
-- "What methods does Soroswap router expose?" → Read interface file
 
 #### deepwiki - Ask questions about repositories
 **Use when:** You need high-level understanding of a repository's architecture
@@ -440,15 +415,20 @@ get_item_source("soroban-sdk", "23.1.0", <item_id>)
 **Examples:**
 - `ask_question("script3/fee-vault-v2", "How do I integrate with a Blend pool?")`
 - `ask_question("soroswap/core", "What's the swap flow and required parameters?")`
-- `read_wiki_structure("stellar/soroban-examples")` - See available topics
 
-#### WebSearch - Find latest documentation and discussions
-**Use when:** Looking for recent updates, best practices, or community discussions
+#### perplexity - Research and troubleshooting
+**Use when:** Looking for recent updates, best practices, or debugging
 
 **Examples:**
-- "Soroban smart contract storage optimization 2025"
-- "soroban-sdk 23.1 release notes"
-- "Stellar Soroban upgrade patterns"
+- `search("soroban-sdk 23.1 breaking changes 2025")`
+- `reason("What are the best practices for Soroban storage optimization?")`
+
+#### cloudflare - Cloudflare documentation
+**Use when:** Deploying frontend-v2 or api-worker to Cloudflare
+
+```bash
+cloudflare: search_cloudflare_documentation("workers vite deployment")
+```
 
 ### Task Agents
 
@@ -462,80 +442,40 @@ get_item_source("soroban-sdk", "23.1.0", <item_id>)
 - `medium` - Moderate exploration (recommended default)
 - `very thorough` - Comprehensive analysis across multiple files
 
-**Examples:**
-- "Find how fee-vault-v2 handles admin withdrawals" (medium)
-- "Search for all fixed-point math usage in soroban-examples" (quick)
-- "Understand the complete Soroswap swap flow" (very thorough)
-
 #### General Purpose Agent
 **When to use:** Complex research requiring multiple tools, code generation
 
-**Examples:**
-- "Research and implement a Soroban contract upgrade mechanism"
-- "Find all examples of Map usage in Stellar contracts and generate test cases"
-- "Analyze security patterns in fee-vault-v2 and apply to our contract"
-
 #### Plan Agent
 **When to use:** Breaking down features before implementation
-
-**Examples:**
-- "Plan implementation of faction points multiplier calculation"
-- "Design the epoch cycling workflow with all edge cases"
 
 ### Decision Guide: Which Tool to Use?
 
 | Task | Primary Tool | Secondary Tool |
 |------|-------------|----------------|
-| Understanding soroban-sdk API | rust-docs | github (examples) |
+| Library documentation | context7 | github |
 | Studying fee-vault-v2 source | github | deepwiki |
-| Finding code patterns across repos | Explore agent | github search_code |
-| Latest Soroban best practices | WebSearch | WebFetch |
-| Complex multi-step research | General Purpose agent | - |
-| API method signatures | rust-docs | - |
+| Finding code patterns | Explore agent | github search_code |
+| Latest Soroban best practices | perplexity | WebSearch |
+| Complex multi-step research | General Purpose agent | perplexity |
 | Architecture questions | deepwiki | github |
-
-### Recommended Workflows
-
-#### Starting with External Dependencies
-```
-1. rust-docs: cache_crate_from_cratesio("soroban-sdk", "23.1.0")
-2. rust-docs: structure("soroban-sdk", "23.1.0")
-3. github: get_file_contents("script3", "fee-vault-v2", "README.md")
-4. deepwiki: ask_question("script3/fee-vault-v2", "What are the key integration points?")
-```
-
-#### Implementing a New Feature
-```
-1. Plan agent: "Plan implementation of [feature]"
-2. rust-docs: search_items_preview for relevant SDK methods
-3. Explore agent: "Find examples of [pattern] in soroban-examples" (medium)
-4. github search_code: Find real-world usage examples
-5. Implement with guidance from research
-```
-
-#### Debugging or Understanding Complex Code
-```
-1. Explore agent: "Find where [functionality] is implemented" (very thorough)
-2. github: get_file_contents to read specific implementations
-3. rust-docs: get_item_details for API documentation
-4. WebSearch: Search for known issues or discussions
-```
+| Cloudflare deployment | cloudflare | - |
 
 ### Key Repositories for Reference
 
-- **stellar/soroban-sdk** - Core SDK and examples
+- **stellar/js-stellar-sdk** - TypeScript SDK
 - **stellar/soroban-examples** - Official example contracts
 - **script3/fee-vault-v2** - Vault integration patterns
 - **soroswap/core** - DEX integration reference
-- **script3/soroban-fixed-point-math** - Safe arithmetic patterns
+- **kalepail/soroban-fixed-point-math** - Safe arithmetic patterns
 
 ## Key Documentation
 
 - Detailed technical plan: `docs/PLAN.md`
-- Tooling reference: `docs/AGENTS.md`
+- Tooling reference: `AGENTS.md` (root)
 - Original requirements: `docs/OG_PLAN.md`
 - Security audit: `docs/SECURITY_AUDIT.md`
 - Production readiness: `docs/PRODUCTION_READINESS.md`
+- Contract addresses: `CHITSHEET.md` (root)
 
 ## Important Notes
 

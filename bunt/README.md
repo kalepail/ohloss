@@ -11,6 +11,9 @@ bunt/
 │   ├── fee-vault/      # Fee Vault v2 contract bindings
 │   └── number-guess/   # Number Guess game contract bindings
 ├── e2e-game.ts         # End-to-end game test script
+├── set_admin.ts        # Admin management script
+├── upgrade_contract.ts # Contract upgrade script
+├── test-*.ts           # Various test and debug scripts
 └── package.json        # Bun workspace configuration
 ```
 

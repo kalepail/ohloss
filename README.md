@@ -39,33 +39,36 @@ Blendizzard creates a gamified DeFi experience where:
 ```text
 blendizzard/
 ├── contracts/
-│   └── blendizzard/
-│       ├── src/
-│       │   ├── lib.rs              # Main contract interface (27 exported functions)
-│       │   ├── types.rs            # Data structures and configuration
-│       │   ├── storage.rs          # Storage utilities and TTL management
-│       │   ├── vault.rs            # Deposit/withdraw operations
-│       │   ├── faction.rs          # Faction selection and locking
-│       │   ├── faction_points.rs   # FP calculation with multipliers
-│       │   ├── game.rs             # Game lifecycle (start/end)
-│       │   ├── epoch.rs            # Epoch cycling and BLND→USDC conversion
-│       │   ├── rewards.rs          # Reward distribution
-│       │   ├── events.rs           # Event emissions (#[contractevent])
-│       │   ├── errors.rs           # Error definitions
-│       │   └── tests/              # Comprehensive test suite
-│       └── Cargo.toml
-├── bunt/                           # TypeScript integration tests (Bun runtime)
-├── frontend/                       # React web application
-├── fp_simulations/                 # Python multiplier simulations
-├── docs/
-│   ├── PLAN.md                     # Detailed technical specification
-│   ├── SECURITY.md                 # Security analysis and best practices
-│   ├── PRODUCTION_READINESS.md     # Production deployment checklist
-│   ├── OG_PLAN.md                  # Original requirements
-│   └── SUGGESTED_ADDITIONS.md      # Future enhancements
-├── CLAUDE.md                       # AI assistant development guide
-├── Cargo.toml                      # Workspace configuration
-└── README.md                       # This file
+│   ├── blendizzard/              # Main Blendizzard contract
+│   │   ├── src/
+│   │   │   ├── lib.rs            # Main contract interface (27 exported functions)
+│   │   │   ├── types.rs          # Data structures and configuration
+│   │   │   ├── storage.rs        # Storage utilities and TTL management
+│   │   │   ├── vault.rs          # Balance queries and cross-epoch comparison
+│   │   │   ├── faction.rs        # Faction selection and locking
+│   │   │   ├── faction_points.rs # FP calculation with multipliers
+│   │   │   ├── game.rs           # Game lifecycle (start/end)
+│   │   │   ├── epoch.rs          # Epoch cycling and BLND→USDC conversion
+│   │   │   ├── rewards.rs        # Reward distribution
+│   │   │   ├── events.rs         # Event emissions (#[contractevent])
+│   │   │   ├── errors.rs         # Error definitions
+│   │   │   ├── fee_vault_v2.rs   # Fee vault client interface
+│   │   │   ├── router.rs         # Soroswap router client interface
+│   │   │   └── tests/            # Comprehensive test suite
+│   │   └── Cargo.toml
+│   └── number-guess/             # Example game contract
+├── bunt/                         # TypeScript bindings and E2E tests (Bun runtime)
+├── frontend/                     # Legacy frontend (Freighter wallet) - deprecated
+├── frontend-v2/                  # Main frontend (Passkey smart wallets)
+├── game-frontend/                # Number Guess game UI
+├── api-worker/                   # Cloudflare Worker API proxy
+├── fp_simulations/               # Python multiplier simulations
+├── docs/                         # Technical documentation
+├── CLAUDE.md                     # AI assistant development guide
+├── AGENTS.md                     # MCP tools and agent reference
+├── CHITSHEET.md                  # Contract addresses and deployment commands
+├── Cargo.toml                    # Workspace configuration
+└── README.md                     # This file
 ```
 
 ## Quick Start
@@ -137,15 +140,12 @@ stellar contract invoke \
 
 ### Mainnet Deployment
 
-**Status**: Not ready - requires external security audit and full testnet validation.
+**Status**: Live on mainnet. See `CHITSHEET.md` for contract addresses.
 
-**Blockers**:
-1. External security audit (4-6 weeks)
-2. Oracle infrastructure operational
-3. Bug bounty program active
-4. Full integration testing on testnet (2-4 weeks)
-
-**Timeline**: 8-13 weeks to mainnet
+```bash
+# Current mainnet contract
+BLENDIZZARD=CBOM2KGQDK4TMTIULH2UJWNLWEIXG47IM2RND4UDGM7KK5EQUQDFOVAY
+```
 
 ## Architecture
 
@@ -230,9 +230,10 @@ Every 4 days (345,600 seconds):
 - `remove_game` - Remove game contract
 - `is_game` - Check if contract is whitelisted
 
-### Vault Operations
-- `deposit` - Deposit USDC into vault
-- `withdraw` - Withdraw from vault (may reset FP)
+### Vault Queries
+- `get_vault_balance` - Query player's vault balance (via fee-vault-v2)
+
+*Note: Players deposit/withdraw directly via fee-vault-v2, not through Blendizzard.*
 
 ### Faction Management
 - `select_faction` - Choose faction (WholeNoodle/PointyStick/SpecialRock)
@@ -262,19 +263,14 @@ Every 4 days (345,600 seconds):
 
 ### Adding Dependencies
 
-**Always research latest versions before adding/updating dependencies:**
+**Always research latest versions before adding/updating dependencies.**
 
-```bash
-# Example: Adding a new crate
-# 1. Research latest stable version
-rust-docs: cache_crate_from_cratesio("new-package", "x.y.z")
-rust-docs: structure("new-package", "x.y.z")
-
-# 2. Add to workspace (root Cargo.toml)
+```toml
+# 1. Add to workspace (root Cargo.toml)
 [workspace.dependencies]
 new-package = "x.y.z"
 
-# 3. Use in contract (contracts/blendizzard/Cargo.toml)
+# 2. Use in contract (contracts/blendizzard/Cargo.toml)
 [dependencies]
 new-package = { workspace = true }
 ```
@@ -316,35 +312,33 @@ test("deposit increases balance", async () => {
 - **[PLAN.md](docs/PLAN.md)** - Detailed technical specification
 - **[SECURITY.md](docs/SECURITY.md)** - Security analysis and attack mitigation
 - **[PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md)** - Production deployment checklist
-- **[CLAUDE.md](docs/CLAUDE.md)** - AI assistant development guide
+- **[CLAUDE.md](CLAUDE.md)** - AI assistant development guide
+- **[AGENTS.md](AGENTS.md)** - MCP tools and agent reference
 - **[OG_PLAN.md](docs/OG_PLAN.md)** - Original requirements
-- **[SUGGESTED_ADDITIONS.md](docs/SUGGESTED_ADDITIONS.md)** - Future enhancements
+- **[CHITSHEET.md](CHITSHEET.md)** - Contract addresses and deployment commands
 
 ## Current Status
 
-**Version**: 0.1.0
+**Version**: 1.0.0
 **Build Status**: ✅ Successful
 **Test Status**: ✅ 61/61 Tests Passing
-**Testnet Ready**: ✅ Yes
-**Mainnet Ready**: ⏳ Requires audit
+**Mainnet**: ✅ Live
 
 ### Completed Features
-- ✅ Vault integration (deposit/withdraw)
+- ✅ Fee-vault integration (players deposit directly)
 - ✅ Faction points with asymptotic multipliers
-- ✅ Game lifecycle with authorization
+- ✅ Game lifecycle with multi-sig authorization
 - ✅ Epoch cycling with BLND→USDC conversion
 - ✅ Reward distribution system
 - ✅ Emergency pause mechanism
 - ✅ TTL storage management
-- ✅ Modern event emissions
+- ✅ Event emissions
 - ✅ Comprehensive test coverage
+- ✅ Mainnet deployment
 
-### Next Steps
-1. Deploy to Stellar testnet
-2. Conduct integration testing with live fee-vault and Soroswap
-3. Engage external security auditors
-4. Launch bug bounty program
-5. Mainnet deployment (after audit approval)
+### In Progress
+- External security audit
+- Multiplier optimization (see `fp_simulations/RECOMMENDATIONS.md`)
 
 ## Contributing
 

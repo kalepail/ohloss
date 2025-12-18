@@ -40,10 +40,12 @@ See the root directory for comprehensive documentation:
 
 27 exported functions across:
 - Admin operations (initialize, upgrade, pause)
-- Vault operations (deposit, withdraw)
+- Vault queries (balance via fee-vault-v2)
 - Faction management (select, lock)
 - Game lifecycle (start, end)
 - Epoch management (cycle, standings)
 - Rewards (claim, query)
+
+*Players deposit/withdraw directly via fee-vault-v2.*
 
 See root `README.md` for full function list and parameters.
