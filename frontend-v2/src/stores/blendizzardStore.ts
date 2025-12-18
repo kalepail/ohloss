@@ -306,13 +306,27 @@ export const useBlendizzardStore = create<BlendizzardState>()(
           let player: Player | null = null
           let epochPlayer: EpochPlayer | null = null
 
+          // IMPORTANT: getLedgerEntries does NOT return entries in order and only returns found entries
+          // We need to match entries by inspecting the key symbol
           if (response.entries) {
-            // Results are in order of requested keys
-            if (response.entries[0]) {
-              player = parsePlayer(response.entries[0].val)
-            }
-            if (response.entries[1]) {
-              epochPlayer = parseEpochPlayer(response.entries[1].val)
+            for (const entry of response.entries) {
+              try {
+                const contractData = entry.val.contractData()
+                const key = contractData.key()
+                if (key.switch().name === 'scvVec') {
+                  const vec = key.vec()
+                  if (vec && vec.length > 0 && vec[0].switch().name === 'scvSymbol') {
+                    const symbol = vec[0].sym().toString()
+                    if (symbol === 'Player') {
+                      player = parsePlayer(entry.val)
+                    } else if (symbol === 'EpochPlayer') {
+                      epochPlayer = parseEpochPlayer(entry.val)
+                    }
+                  }
+                }
+              } catch (e) {
+                console.warn('Error parsing entry in fetchPlayerData:', e)
+              }
             }
           }
 

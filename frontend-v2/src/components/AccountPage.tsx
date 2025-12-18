@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useWalletStore } from '@/stores/walletStore'
 import { Checkbox } from '@/components/ui'
@@ -163,23 +163,26 @@ export function AccountPage() {
     restoreSession()
   }, [address, setAddress, navigate])
 
-  // Initial data fetch
+  // Guard ref for initial protocol fetch (React Strict Mode)
+  const protocolFetchedRef = useRef(false)
+
+  // Initial data fetch (with guard for React Strict Mode)
   useEffect(() => {
+    if (protocolFetchedRef.current) return
+    protocolFetchedRef.current = true
     fetchProtocolData()
   }, [fetchProtocolData])
 
-  // Fetch player data when address changes (combined single RPC call)
+  // Fetch player data when address or epoch changes
   useEffect(() => {
-    if (address && currentEpoch !== null) {
-      fetchAllPlayerData(address)
-    }
+    if (!address || currentEpoch === null) return
+    fetchAllPlayerData(address)
   }, [address, currentEpoch, fetchAllPlayerData])
 
-  // Fetch rewards when enabled (combined single RPC call for both player and dev)
+  // Fetch rewards when enabled
   useEffect(() => {
-    if (address && currentEpoch !== null && (isPlayer || isDeveloper)) {
-      fetchAllRewards(address, isPlayer, isDeveloper)
-    }
+    if (!address || currentEpoch === null || (!isPlayer && !isDeveloper)) return
+    fetchAllRewards(address, isPlayer, isDeveloper)
   }, [address, isPlayer, isDeveloper, currentEpoch, fetchAllRewards])
 
   // Countdown timer

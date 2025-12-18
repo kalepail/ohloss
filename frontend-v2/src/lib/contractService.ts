@@ -561,12 +561,21 @@ function storageKeyToLedgerKey(
 
 /**
  * Batch fetch ledger entries
+ *
+ * IMPORTANT: getLedgerEntries does NOT return entries in order and only returns found entries.
+ * We match returned entries to original keys using XDR base64 comparison.
  */
 async function batchGetLedgerEntries(
   keys: xdr.LedgerKey[]
 ): Promise<(xdr.LedgerEntryData | null)[]> {
   const rpcClient = getRpc()
   const results: (xdr.LedgerEntryData | null)[] = new Array(keys.length).fill(null)
+
+  // Create a map from key XDR (base64) to original index for matching
+  const keyB64ToIndex = new Map<string, number>()
+  keys.forEach((key, index) => {
+    keyB64ToIndex.set(key.toXDR('base64'), index)
+  })
 
   // Split into batches of 200
   for (let i = 0; i < keys.length; i += MAX_LEDGER_ENTRIES_PER_REQUEST) {
@@ -576,10 +585,12 @@ async function batchGetLedgerEntries(
       const response = await rpcClient.getLedgerEntries(...batch)
 
       if (response.entries) {
-        for (let j = 0; j < batch.length; j++) {
-          const entry = response.entries[j]
-          if (entry) {
-            results[i + j] = entry.val
+        // Match each returned entry to its original key by XDR comparison
+        for (const entry of response.entries) {
+          const entryKeyB64 = entry.key.toXDR('base64')
+          const originalIndex = keyB64ToIndex.get(entryKeyB64)
+          if (originalIndex !== undefined) {
+            results[originalIndex] = entry.val
           }
         }
       }

@@ -502,8 +502,29 @@ export async function getLobbyPlayerData(playerAddress: string): Promise<{
 
     const response = await rpcClient.getLedgerEntries(playerLedgerKey, epochPlayerLedgerKey)
 
-    const playerEntry = response.entries?.[0]
-    const epochPlayerEntry = response.entries?.[1]
+    // IMPORTANT: getLedgerEntries does NOT return entries in order and only returns found entries.
+    // Match entries by inspecting the key symbol.
+    let playerEntry: typeof response.entries[0] | undefined
+    let epochPlayerEntry: typeof response.entries[0] | undefined
+
+    for (const entry of response.entries || []) {
+      try {
+        const key = entry.key.contractData().key()
+        if (key.switch().name === 'scvVec') {
+          const vec = key.vec()
+          if (vec && vec.length > 0 && vec[0].switch().name === 'scvSymbol') {
+            const symbol = vec[0].sym().toString()
+            if (symbol === 'Player') {
+              playerEntry = entry
+            } else if (symbol === 'EpochPlayer') {
+              epochPlayerEntry = entry
+            }
+          }
+        }
+      } catch {
+        // Skip entries that don't match expected structure
+      }
+    }
 
     const hasFaction = !!playerEntry
 
@@ -673,8 +694,29 @@ export async function getGamePageData(playerAddress: string): Promise<{
 
     const response = await rpcClient.getLedgerEntries(playerLedgerKey, epochPlayerLedgerKey)
 
-    const playerEntry = response.entries?.[0]
-    const epochPlayerEntry = response.entries?.[1]
+    // IMPORTANT: getLedgerEntries does NOT return entries in order and only returns found entries.
+    // Match entries by inspecting the key symbol.
+    let playerEntry: typeof response.entries[0] | undefined
+    let epochPlayerEntry: typeof response.entries[0] | undefined
+
+    for (const entry of response.entries || []) {
+      try {
+        const key = entry.key.contractData().key()
+        if (key.switch().name === 'scvVec') {
+          const vec = key.vec()
+          if (vec && vec.length > 0 && vec[0].switch().name === 'scvSymbol') {
+            const symbol = vec[0].sym().toString()
+            if (symbol === 'Player') {
+              playerEntry = entry
+            } else if (symbol === 'EpochPlayer') {
+              epochPlayerEntry = entry
+            }
+          }
+        }
+      } catch {
+        // Skip entries that don't match expected structure
+      }
+    }
 
     const hasFaction = !!playerEntry
 

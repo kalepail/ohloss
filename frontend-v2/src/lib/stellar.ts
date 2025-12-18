@@ -197,6 +197,9 @@ const MAX_LEDGER_ENTRIES_PER_REQUEST = 200
 /**
  * Fetch multiple ledger entries in batched requests (max 200 per request)
  * Returns a map of key index to parsed value
+ *
+ * IMPORTANT: getLedgerEntries does NOT return entries in order and only returns found entries.
+ * We match returned entries to original keys using XDR base64 comparison.
  */
 export async function batchGetLedgerEntries<T>(
   keys: xdr.LedgerKey[],
@@ -205,22 +208,28 @@ export async function batchGetLedgerEntries<T>(
   const rpcClient = getRpc()
   const results = new Map<number, T>()
 
+  // Create a map from key XDR (base64) to original index for matching
+  const keyB64ToIndex = new Map<string, number>()
+  keys.forEach((key, index) => {
+    keyB64ToIndex.set(key.toXDR('base64'), index)
+  })
+
   // Split into batches of 200
   for (let i = 0; i < keys.length; i += MAX_LEDGER_ENTRIES_PER_REQUEST) {
     const batch = keys.slice(i, i + MAX_LEDGER_ENTRIES_PER_REQUEST)
-    const batchStartIndex = i
 
     try {
       const response = await rpcClient.getLedgerEntries(...batch)
 
-      // Map results back to original indices
+      // Match each returned entry to its original key by XDR comparison
       if (response.entries) {
-        for (let j = 0; j < response.entries.length; j++) {
-          const entry = response.entries[j]
-          if (entry) {
+        for (const entry of response.entries) {
+          const entryKeyB64 = entry.key.toXDR('base64')
+          const originalIndex = keyB64ToIndex.get(entryKeyB64)
+          if (originalIndex !== undefined) {
             const parsed = parser(entry.val)
             if (parsed !== null) {
-              results.set(batchStartIndex + j, parsed)
+              results.set(originalIndex, parsed)
             }
           }
         }
