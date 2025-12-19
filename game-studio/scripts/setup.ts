@@ -1,0 +1,178 @@
+#!/usr/bin/env bun
+
+/**
+ * One-command setup script
+ *
+ * This script:
+ * 1. Builds contracts
+ * 2. Deploys to testnet
+ * 3. Generates TypeScript bindings
+ * 4. Configures frontend
+ * 5. Installs frontend dependencies
+ * 6. Starts the dev server
+ */
+
+import { $ } from "bun";
+import { existsSync } from "fs";
+import { readEnvFile, getEnvValue } from "./utils/env";
+import { getWorkspaceContracts } from "./utils/contracts";
+
+console.log("🎮 Blendizzard Game Studio Setup\n");
+console.log("This will:");
+console.log("  1. Build Soroban contracts");
+console.log("  2. Deploy to Stellar testnet");
+console.log("  3. Generate TypeScript bindings");
+console.log("  4. Configure frontend");
+console.log("  5. Install frontend dependencies");
+console.log("  6. Start dev server\n");
+
+// Step 1: Build contracts
+console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+console.log("Step 1/6: Building contracts");
+console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+try {
+  await $`bun run build`;
+} catch (error) {
+  console.error("\n❌ Build failed. Please check the errors above.");
+  process.exit(1);
+}
+
+// Step 2: Deploy contracts
+console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+console.log("Step 2/6: Deploying to testnet");
+console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+try {
+  await $`bun run deploy`;
+} catch (error) {
+  console.error("\n❌ Deployment failed. Please check the errors above.");
+  process.exit(1);
+}
+
+// Step 3: Generate bindings
+console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+console.log("Step 3/6: Generating TypeScript bindings");
+console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+try {
+  await $`bun run bindings`;
+} catch (error) {
+  console.error("\n❌ Bindings generation failed. Please check the errors above.");
+  process.exit(1);
+}
+
+// Step 4: Configure frontend
+console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+console.log("Step 4/6: Configuring frontend");
+console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+
+let rpcUrl = 'https://soroban-testnet.stellar.org';
+let networkPassphrase = 'Test SDF Network ; September 2015';
+let wallets: { admin: string; player1: string; player2: string } = { admin: '', player1: '', player2: '' };
+const contracts = await getWorkspaceContracts();
+const contractIds: Record<string, string> = {};
+
+if (existsSync('deployment.json')) {
+  const deploymentInfo = await Bun.file("deployment.json").json();
+  if (deploymentInfo?.contracts && typeof deploymentInfo.contracts === 'object') {
+    Object.assign(contractIds, deploymentInfo.contracts);
+  } else {
+    // Backwards compatible fallback
+    if (deploymentInfo?.mockBlendizzardId) contractIds["mock-blendizzard"] = deploymentInfo.mockBlendizzardId;
+    if (deploymentInfo?.twentyOneId) contractIds["twenty-one"] = deploymentInfo.twentyOneId;
+    if (deploymentInfo?.numberGuessId) contractIds["number-guess"] = deploymentInfo.numberGuessId;
+  }
+  rpcUrl = deploymentInfo?.rpcUrl || rpcUrl;
+  networkPassphrase = deploymentInfo?.networkPassphrase || networkPassphrase;
+  wallets = deploymentInfo?.wallets || wallets;
+} else {
+  const env = await readEnvFile('.env');
+  for (const contract of contracts) {
+    contractIds[contract.packageName] = getEnvValue(env, `VITE_${contract.envKey}_CONTRACT_ID`);
+  }
+  rpcUrl = getEnvValue(env, 'VITE_SOROBAN_RPC_URL', rpcUrl);
+  networkPassphrase = getEnvValue(env, 'VITE_NETWORK_PASSPHRASE', networkPassphrase);
+  wallets = {
+    admin: getEnvValue(env, 'VITE_DEV_ADMIN_ADDRESS'),
+    player1: getEnvValue(env, 'VITE_DEV_PLAYER1_ADDRESS'),
+    player2: getEnvValue(env, 'VITE_DEV_PLAYER2_ADDRESS'),
+  };
+}
+
+const existingEnv = await readEnvFile('.env');
+const walletSecrets = {
+  admin: getEnvValue(existingEnv, 'VITE_DEV_ADMIN_SECRET', 'NOT_AVAILABLE'),
+  player1: getEnvValue(existingEnv, 'VITE_DEV_PLAYER1_SECRET', 'NOT_AVAILABLE'),
+  player2: getEnvValue(existingEnv, 'VITE_DEV_PLAYER2_SECRET', 'NOT_AVAILABLE'),
+};
+
+if (walletSecrets.admin === 'NOT_AVAILABLE') {
+  console.warn("⚠️  Warning: Admin secret not available. Dev admin wallet actions may not work without a connected wallet.");
+}
+
+const missingIds: string[] = [];
+for (const contract of contracts) {
+  if (!contractIds[contract.packageName]) missingIds.push(`VITE_${contract.envKey}_CONTRACT_ID`);
+}
+if (missingIds.length > 0) {
+  console.error("❌ Error: Missing contract IDs (run `bun run deploy` first):");
+  for (const k of missingIds) console.error(`  - ${k}`);
+  process.exit(1);
+}
+
+const contractEnvLines = contracts
+  .map((c) => `VITE_${c.envKey}_CONTRACT_ID=${contractIds[c.packageName] || ""}`)
+  .join("\n");
+
+const envContent = `# Auto-generated by setup script
+# Do not edit manually - run 'bun run setup' to regenerate
+# WARNING: This file contains secret keys. Never commit to git!
+
+VITE_SOROBAN_RPC_URL=${rpcUrl}
+VITE_NETWORK_PASSPHRASE=${networkPassphrase}
+${contractEnvLines}
+
+# Dev wallet addresses for testing
+VITE_DEV_ADMIN_ADDRESS=${wallets.admin}
+VITE_DEV_PLAYER1_ADDRESS=${wallets.player1}
+VITE_DEV_PLAYER2_ADDRESS=${wallets.player2}
+
+# Dev wallet secret keys (WARNING: Never commit this file!)
+VITE_DEV_ADMIN_SECRET=${walletSecrets.admin}
+VITE_DEV_PLAYER1_SECRET=${walletSecrets.player1}
+VITE_DEV_PLAYER2_SECRET=${walletSecrets.player2}
+`;
+
+await Bun.write(".env", envContent);
+console.log("✅ Root .env file created\n");
+
+// Step 5: Install frontend dependencies
+console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+console.log("Step 5/6: Installing frontend dependencies");
+console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+
+try {
+  await $`bun install`.cwd("frontend");
+  console.log("✅ Dependencies installed\n");
+} catch (error) {
+  console.error("❌ Failed to install dependencies:", error);
+  process.exit(1);
+}
+
+// Step 6: Start dev server
+console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+console.log("Step 6/6: Starting dev server");
+console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+
+console.log("🎉 Setup complete!\n");
+console.log("Contract IDs:");
+for (const contract of contracts) {
+  console.log(`  ${contract.packageName}: ${contractIds[contract.packageName]}`);
+}
+console.log("");
+console.log("Starting frontend at http://localhost:3000...\n");
+
+try {
+  await $`bun run dev`.cwd("frontend");
+} catch (error) {
+  console.error("❌ Failed to start dev server:", error);
+  process.exit(1);
+}

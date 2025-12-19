@@ -1,0 +1,15 @@
+{
+  "name": "blendizzard-game-studio",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "setup": "bun run scripts/setup.ts",
+    "build": "bun run scripts/build.ts",
+    "deploy": "bun run scripts/deploy.ts",
+    "bindings": "bun run scripts/bindings.ts",
+    "dev": "bun --cwd=frontend run dev"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}
