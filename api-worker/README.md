@@ -1,4 +1,4 @@
-# Blendizzard API Worker
+# Ohloss API Worker
 
 Cloudflare Worker that proxies requests to external APIs, keeping secrets server-side.
 

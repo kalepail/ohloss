@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { feeVaultService } from '@/services/feeVaultService';
-import { blendizzardService } from '@/services/blendizzardService';
+import { ohlossService } from '@/services/ohlossService';
 import { balanceService } from '@/services/balanceService';
 import { requestCache, createCacheKey } from '@/utils/requestCache';
 import { USDC_DECIMALS } from '@/utils/constants';
@@ -36,8 +36,8 @@ export function VaultQuickActions({ userAddress, onSuccess, refreshTrigger = 0 }
             abortController.signal
           ),
           requestCache.dedupe(
-            createCacheKey('blendizzard-config'),
-            () => blendizzardService.getConfig(),
+            createCacheKey('ohloss-config'),
+            () => ohlossService.getConfig(),
             60000,
             abortController.signal
           ),

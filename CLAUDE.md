@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Blendizzard is a faction-based competitive gaming protocol on Stellar's Soroban platform. Players deposit assets into a yield-generating vault (via Blend protocol), earn faction points based on deposit amount and time, and compete in games by wagering these points. Every 4-day epoch, the winning faction shares the accumulated yield (BLND converted to USDC).
+Ohloss is a faction-based competitive gaming protocol on Stellar's Soroban platform. Players deposit assets into a yield-generating vault (via Blend protocol), earn faction points based on deposit amount and time, and compete in games by wagering these points. Every 4-day epoch, the winning faction shares the accumulated yield (BLND converted to USDC).
 
 ## Key Technologies
 
@@ -72,10 +72,10 @@ github: search_code("package-name soroban language:rust")
 rustup target add wasm32v1-none
 
 # Build the contract (RECOMMENDED - uses stellar CLI)
-cd contracts/blendizzard
+cd contracts/ohloss
 stellar contract build
 
-# Output location: target/wasm32v1-none/release/blendizzard.wasm
+# Output location: target/wasm32v1-none/release/ohloss.wasm
 
 # Alternative: Manual build with cargo
 cargo build --target wasm32v1-none --release
@@ -84,7 +84,7 @@ cargo build --target wasm32v1-none --release
 cargo test
 
 # Optimize WASM (usually not needed - stellar contract build optimizes automatically)
-stellar contract optimize --wasm target/wasm32v1-none/release/blendizzard.wasm
+stellar contract optimize --wasm target/wasm32v1-none/release/ohloss.wasm
 ```
 
 **Why wasm32v1-none?**
@@ -111,8 +111,8 @@ bun test --watch
 
 # Generate TypeScript bindings from contract
 stellar contract bindings typescript \
-  --wasm ../contracts/blendizzard/target/wasm32v1-none/release/blendizzard.wasm \
-  --output-dir ./bindings/blendizzard \
+  --wasm ../contracts/ohloss/target/wasm32v1-none/release/ohloss.wasm \
+  --output-dir ./bindings/ohloss \
   --contract-id <CONTRACT_ID>
 ```
 
@@ -121,7 +121,7 @@ stellar contract bindings typescript \
 ```bash
 # Deploy to testnet
 stellar contract deploy \
-  --wasm target/wasm32v1-none/release/blendizzard.wasm \
+  --wasm target/wasm32v1-none/release/ohloss.wasm \
   --source admin \
   --network testnet
 ```
@@ -140,11 +140,11 @@ stellar contract deploy \
 
 ### Architecture Model: Cross-Epoch Balance Tracking
 
-**Key Design Principle**: Players interact directly with fee-vault-v2 for deposits/withdrawals. Blendizzard queries balances and enforces game rules at epoch boundaries.
+**Key Design Principle**: Players interact directly with fee-vault-v2 for deposits/withdrawals. Ohloss queries balances and enforces game rules at epoch boundaries.
 
 **Flow:**
-1. Player deposits to fee-vault-v2 directly (no intermediate Blendizzard deposit call)
-2. Player plays first game of Epoch N → Blendizzard queries vault balance
+1. Player deposits to fee-vault-v2 directly (no intermediate Ohloss deposit call)
+2. Player plays first game of Epoch N → Ohloss queries vault balance
 3. Balance compared to last epoch → If >50% withdrawal, reset time multiplier
 4. FP calculated based on current balance + multipliers
 5. FP remains valid for entire epoch (even if player withdraws mid-epoch)
@@ -159,7 +159,7 @@ stellar contract deploy \
 ### Contract Structure
 
 ```
-contracts/blendizzard/src/
+contracts/ohloss/src/
 ├── lib.rs              # Main contract entry point (27 exported functions)
 ├── types.rs            # Shared data structures and enums
 ├── storage.rs          # Storage utilities and TTL management
@@ -187,8 +187,8 @@ The contract integrates with three external Soroban contracts:
 1. **fee-vault-v2** (https://github.com/script3/fee-vault-v2)
    - Yield-generating vault for BLND token
    - **Players interact directly**: Call `deposit()` and `withdraw()` on fee-vault-v2
-   - **Blendizzard queries balances**: `get_underlying_tokens(player)` at first game of epoch
-   - **Admin role**: Blendizzard withdraws accumulated fees via `admin_withdraw()`
+   - **Ohloss queries balances**: `get_underlying_tokens(player)` at first game of epoch
+   - **Admin role**: Ohloss withdraws accumulated fees via `admin_withdraw()`
 
 2. **Soroswap Router** (https://github.com/soroswap/core)
    - DEX for BLND → USDC conversion during epoch cycling
@@ -200,7 +200,7 @@ The contract integrates with three external Soroban contracts:
 
 ### Data Structures
 
-Key storage types (defined in contracts/blendizzard/src/types.rs):
+Key storage types (defined in contracts/ohloss/src/types.rs):
 
 **Player (Persistent across epochs):**
 ```rust
@@ -336,15 +336,15 @@ Generate type-safe bindings after building the contract:
 
 ```bash
 stellar contract bindings typescript \
-  --wasm target/wasm32v1-none/release/blendizzard.wasm \
-  --output-dir ./bindings/blendizzard \
+  --wasm target/wasm32v1-none/release/ohloss.wasm \
+  --output-dir ./bindings/ohloss \
   --contract-id <CONTRACT_ID>
 ```
 
 Use the generated bindings:
 
 ```typescript
-import { Contract } from './bindings/blendizzard';
+import { Contract } from './bindings/ohloss';
 
 const contract = new Contract({
   contractId: 'C...',

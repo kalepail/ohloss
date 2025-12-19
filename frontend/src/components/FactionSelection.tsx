@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { blendizzardService } from '@/services/blendizzardService';
+import { ohlossService } from '@/services/ohlossService';
 import { useWallet } from '@/hooks/useWallet';
 
 interface FactionSelectionProps {
@@ -51,7 +51,7 @@ export function FactionSelection({ userAddress, onSuccess }: FactionSelectionPro
       setError(null);
 
       const signer = getContractSigner();
-      await blendizzardService.selectFaction(userAddress, selectedFaction, signer);
+      await ohlossService.selectFaction(userAddress, selectedFaction, signer);
 
       onSuccess();
     } catch (err) {

@@ -1,13 +1,13 @@
-# Bunt - Blendizzard TypeScript Testing
+# Bunt - Ohloss TypeScript Testing
 
-This directory contains TypeScript bindings and end-to-end tests for the Blendizzard contracts.
+This directory contains TypeScript bindings and end-to-end tests for the Ohloss contracts.
 
 ## Structure
 
 ```
 bunt/
 ├── bindings/           # Auto-generated TypeScript bindings (workspace packages)
-│   ├── blendizzard/    # Blendizzard contract bindings
+│   ├── ohloss/    # Ohloss contract bindings
 │   ├── fee-vault/      # Fee Vault v2 contract bindings
 │   └── number-guess/   # Number Guess game contract bindings
 ├── e2e-game.ts         # End-to-end game test script
@@ -48,10 +48,10 @@ This runs `ncu -u` in the root and all bindings directories.
 If contracts are redeployed or updated:
 
 ```bash
-# Blendizzard
+# Ohloss
 stellar contract bindings typescript \
   --contract-id CAK6Z6KFMB3V2ENEJ7THVKXUYQ5EG7EL2TM5UQ2FLDXI37FS6DRIMIZH \
-  --output-dir ./bindings/blendizzard \
+  --output-dir ./bindings/ohloss \
   --overwrite
 
 # Fee Vault
@@ -100,7 +100,7 @@ The `e2e-game.ts` script demonstrates a complete game:
 1. **Deposit**: Both players deposit 1000 USDC to fee-vault
 2. **Select Factions**: Player 1 → WholeNoodle, Player 2 → PointyStick
 3. **Check State**: Verify initial player data and FP
-4. **Start Game**: Create number-guess game (locks FP via blendizzard)
+4. **Start Game**: Create number-guess game (locks FP via ohloss)
 5. **Make Guesses**: Players guess numbers (1-10)
 6. **Reveal Winner**: Complete game (burns FP, updates faction standings)
 7. **Verify Results**: Check final FP state and faction standings
@@ -117,7 +117,7 @@ This project uses Bun workspaces to manage the bindings as local packages:
 {
   "workspaces": ["bindings/*"],
   "dependencies": {
-    "blendizzard": "workspace:*",
+    "ohloss": "workspace:*",
     "fee-vault": "workspace:*",
     "number-guess": "workspace:*"
   }
@@ -127,7 +127,7 @@ This project uses Bun workspaces to manage the bindings as local packages:
 This allows importing bindings directly:
 
 ```typescript
-import { Contract as BlendizzardContract } from 'blendizzard';
+import { Contract as OhlossContract } from 'ohloss';
 ```
 
 ---

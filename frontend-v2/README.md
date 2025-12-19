@@ -1,6 +1,6 @@
-# Blendizzard Frontend V2
+# Ohloss Frontend V2
 
-The main Blendizzard web application using passkey-based smart wallets.
+The main Ohloss web application using passkey-based smart wallets.
 
 ## Stack
 
@@ -40,7 +40,7 @@ Copy `.env.example` to `.env`. Key variables:
 | Variable | Description |
 |----------|-------------|
 | `VITE_RPC_URL` | Stellar RPC endpoint |
-| `VITE_BLENDIZZARD_CONTRACT` | Main contract address |
+| `VITE_OHLOSS_CONTRACT` | Main contract address |
 | `VITE_FEE_VAULT_CONTRACT` | Fee vault address |
 | `VITE_LAUNCHTUBE_URL` | Fee sponsoring service |
 | `VITE_TURNSTILE_SITE_KEY` | Cloudflare bot protection |

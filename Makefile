@@ -6,7 +6,7 @@ build:
 	stellar contract build
 
 optimize: build
-	stellar contract optimize --wasm target/wasm32v1-none/release/blendizzard.wasm
+	stellar contract optimize --wasm target/wasm32v1-none/release/ohloss.wasm
 	stellar contract optimize --wasm target/wasm32v1-none/release/number_guess.wasm
 
 test: build
@@ -19,9 +19,10 @@ clean:
 	cargo clean
 
 bindings:
+	stellar network use mainnet
 	stellar contract bindings typescript \
-		--wasm target/wasm32v1-none/release/blendizzard.wasm \
-		--output-dir ./bunt/bindings/blendizzard \
+		--wasm target/wasm32v1-none/release/ohloss.wasm \
+		--output-dir ./bunt/bindings/ohloss \
 		--overwrite
 	stellar contract bindings typescript \
 		--output-dir ./bunt/bindings/fee-vault \

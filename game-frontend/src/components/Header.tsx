@@ -3,7 +3,7 @@ import { useWalletStore } from '@/store/walletStore'
 import { usePendingGamesStore } from '@/store/pendingGamesStore'
 import { useAvailableFp } from '@/hooks/useAvailableFp'
 import { formatAddress, formatWager, getFactionInfo } from '@/types/game'
-import { getPlayerFaction } from '@/services/blendizzardService'
+import { getPlayerFaction } from '@/services/ohlossService'
 import { useNavigate } from 'react-router-dom'
 
 export default function Header() {

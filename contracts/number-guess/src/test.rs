@@ -1,25 +1,25 @@
 #![cfg(test)]
 
-// Unit tests for the number-guess contract using a simple mock Blendizzard.
-// These tests verify game logic independently of the full Blendizzard system.
+// Unit tests for the number-guess contract using a simple mock Ohloss.
+// These tests verify game logic independently of the full Ohloss system.
 //
 // Note: These tests use a minimal mock for isolation and speed.
-// For full integration tests with the real Blendizzard contract, see:
-// contracts/blendizzard/src/tests/number_guess_integration.rs
+// For full integration tests with the real Ohloss contract, see:
+// contracts/ohloss/src/tests/number_guess_integration.rs
 
 use crate::{Error, NumberGuessContract, NumberGuessContractClient};
 use soroban_sdk::testutils::{Address as _, Ledger as _};
 use soroban_sdk::{contract, contractimpl, Address, BytesN, Env};
 
 // ============================================================================
-// Mock Blendizzard for Unit Testing
+// Mock Ohloss for Unit Testing
 // ============================================================================
 
 #[contract]
-pub struct MockBlendizzard;
+pub struct MockOhloss;
 
 #[contractimpl]
-impl MockBlendizzard {
+impl MockOhloss {
     pub fn start_game(
         _env: Env,
         _game_id: Address,
@@ -48,7 +48,7 @@ impl MockBlendizzard {
 fn setup_test() -> (
     Env,
     NumberGuessContractClient<'static>,
-    MockBlendizzardClient<'static>,
+    MockOhlossClient<'static>,
     Address,
     Address,
 ) {
@@ -67,24 +67,24 @@ fn setup_test() -> (
         max_entry_ttl: u32::MAX / 2,
     });
 
-    // Deploy mock Blendizzard contract
-    let blendizzard_addr = env.register(MockBlendizzard, ());
-    let blendizzard = MockBlendizzardClient::new(&env, &blendizzard_addr);
+    // Deploy mock Ohloss contract
+    let ohloss_addr = env.register(MockOhloss, ());
+    let ohloss = MockOhlossClient::new(&env, &ohloss_addr);
 
     // Create admin address
     let admin = Address::generate(&env);
 
-    // Deploy number-guess with admin and Blendizzard address
-    let contract_id = env.register(NumberGuessContract, (&admin, &blendizzard_addr));
+    // Deploy number-guess with admin and Ohloss address
+    let contract_id = env.register(NumberGuessContract, (&admin, &ohloss_addr));
     let client = NumberGuessContractClient::new(&env, &contract_id);
 
     // Register number-guess as a whitelisted game (mock does nothing)
-    blendizzard.add_game(&contract_id);
+    ohloss.add_game(&contract_id);
 
     let player1 = Address::generate(&env);
     let player2 = Address::generate(&env);
 
-    (env, client, blendizzard, player1, player2)
+    (env, client, ohloss, player1, player2)
 }
 
 /// Assert that a Result contains a specific number_guess error
@@ -146,7 +146,7 @@ fn assert_number_guess_error<T, E>(
 
 #[test]
 fn test_complete_game() {
-    let (_env, client, _blendizzard, player1, player2) = setup_test();
+    let (_env, client, _ohloss, player1, player2) = setup_test();
 
     let session_id = 1u32;
     let wager = 100_0000000;
@@ -182,7 +182,7 @@ fn test_complete_game() {
 
 #[test]
 fn test_winning_number_in_range() {
-    let (_env, client, _blendizzard, player1, player2) = setup_test();
+    let (_env, client, _ohloss, player1, player2) = setup_test();
 
     let session_id = 2u32;
     client.start_game(&session_id, &player1, &player2, &100_0000000, &100_0000000);
@@ -204,7 +204,7 @@ fn test_winning_number_in_range() {
 
 #[test]
 fn test_multiple_sessions() {
-    let (env, client, _blendizzard, player1, player2) = setup_test();
+    let (env, client, _ohloss, player1, player2) = setup_test();
     let player3 = Address::generate(&env);
     let player4 = Address::generate(&env);
 
@@ -228,7 +228,7 @@ fn test_multiple_sessions() {
 
 #[test]
 fn test_closest_guess_wins() {
-    let (_env, client, _blendizzard, player1, player2) = setup_test();
+    let (_env, client, _ohloss, player1, player2) = setup_test();
 
     let session_id = 5u32;
     client.start_game(&session_id, &player1, &player2, &100_0000000, &100_0000000);
@@ -269,7 +269,7 @@ fn test_closest_guess_wins() {
 
 #[test]
 fn test_tie_game_player1_wins() {
-    let (_env, client, _blendizzard, player1, player2) = setup_test();
+    let (_env, client, _ohloss, player1, player2) = setup_test();
 
     let session_id = 6u32;
     client.start_game(&session_id, &player1, &player2, &100_0000000, &100_0000000);
@@ -284,7 +284,7 @@ fn test_tie_game_player1_wins() {
 
 #[test]
 fn test_exact_guess_wins() {
-    let (_env, client, _blendizzard, player1, player2) = setup_test();
+    let (_env, client, _ohloss, player1, player2) = setup_test();
 
     let session_id = 7u32;
     client.start_game(&session_id, &player1, &player2, &100_0000000, &100_0000000);
@@ -323,7 +323,7 @@ fn test_exact_guess_wins() {
 
 #[test]
 fn test_cannot_guess_twice() {
-    let (_env, client, _blendizzard, player1, player2) = setup_test();
+    let (_env, client, _ohloss, player1, player2) = setup_test();
 
     let session_id = 8u32;
     client.start_game(&session_id, &player1, &player2, &100_0000000, &100_0000000);
@@ -338,7 +338,7 @@ fn test_cannot_guess_twice() {
 
 #[test]
 fn test_cannot_reveal_before_both_guesses() {
-    let (_env, client, _blendizzard, player1, player2) = setup_test();
+    let (_env, client, _ohloss, player1, player2) = setup_test();
 
     let session_id = 9u32;
     client.start_game(&session_id, &player1, &player2, &100_0000000, &100_0000000);
@@ -354,7 +354,7 @@ fn test_cannot_reveal_before_both_guesses() {
 #[test]
 #[should_panic(expected = "Guess must be between 1 and 10")]
 fn test_cannot_guess_below_range() {
-    let (env, client, _blendizzard, player1, _player2) = setup_test();
+    let (env, client, _ohloss, player1, _player2) = setup_test();
 
     let session_id = 10u32;
     client.start_game(
@@ -372,7 +372,7 @@ fn test_cannot_guess_below_range() {
 #[test]
 #[should_panic(expected = "Guess must be between 1 and 10")]
 fn test_cannot_guess_above_range() {
-    let (env, client, _blendizzard, player1, _player2) = setup_test();
+    let (env, client, _ohloss, player1, _player2) = setup_test();
 
     let session_id = 11u32;
     client.start_game(
@@ -389,7 +389,7 @@ fn test_cannot_guess_above_range() {
 
 #[test]
 fn test_non_player_cannot_guess() {
-    let (env, client, _blendizzard, player1, player2) = setup_test();
+    let (env, client, _ohloss, player1, player2) = setup_test();
     let non_player = Address::generate(&env);
 
     let session_id = 11u32;
@@ -402,7 +402,7 @@ fn test_non_player_cannot_guess() {
 
 #[test]
 fn test_cannot_reveal_nonexistent_game() {
-    let (_env, client, _blendizzard, _player1, _player2) = setup_test();
+    let (_env, client, _ohloss, _player1, _player2) = setup_test();
 
     let result = client.try_reveal_winner(&999);
     assert_number_guess_error(&result, Error::GameNotFound);
@@ -410,7 +410,7 @@ fn test_cannot_reveal_nonexistent_game() {
 
 #[test]
 fn test_cannot_guess_after_game_ended() {
-    let (_env, client, _blendizzard, player1, player2) = setup_test();
+    let (_env, client, _ohloss, player1, player2) = setup_test();
 
     let session_id = 12u32;
     client.start_game(&session_id, &player1, &player2, &100_0000000, &100_0000000);
@@ -429,7 +429,7 @@ fn test_cannot_guess_after_game_ended() {
 
 #[test]
 fn test_cannot_reveal_twice() {
-    let (_env, client, _blendizzard, player1, player2) = setup_test();
+    let (_env, client, _ohloss, player1, player2) = setup_test();
 
     let session_id = 14u32;
     client.start_game(&session_id, &player1, &player2, &100_0000000, &100_0000000);
@@ -452,7 +452,7 @@ fn test_cannot_reveal_twice() {
 
 #[test]
 fn test_multiple_games_independent() {
-    let (env, client, _blendizzard, player1, player2) = setup_test();
+    let (env, client, _ohloss, player1, player2) = setup_test();
     let player3 = Address::generate(&env);
     let player4 = Address::generate(&env);
 
@@ -490,7 +490,7 @@ fn test_multiple_games_independent() {
 
 #[test]
 fn test_asymmetric_wagers() {
-    let (_env, client, _blendizzard, player1, player2) = setup_test();
+    let (_env, client, _ohloss, player1, player2) = setup_test();
 
     let session_id = 15u32;
     let wager1 = 200_0000000;
@@ -521,10 +521,10 @@ fn test_upgrade_function_exists() {
     env.mock_all_auths();
 
     let admin = Address::generate(&env);
-    let blendizzard_addr = env.register(MockBlendizzard, ());
+    let ohloss_addr = env.register(MockOhloss, ());
 
     // Deploy number-guess with admin
-    let contract_id = env.register(NumberGuessContract, (&admin, &blendizzard_addr));
+    let contract_id = env.register(NumberGuessContract, (&admin, &ohloss_addr));
     let client = NumberGuessContractClient::new(&env, &contract_id);
 
     // Verify the upgrade function exists and can be called

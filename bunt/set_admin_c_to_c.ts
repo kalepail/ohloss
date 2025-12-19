@@ -1,11 +1,11 @@
 /**
- * Set admin when transferring from one C-address (Blendizzard contract) to another C-address
+ * Set admin when transferring from one C-address (Ohloss contract) to another C-address
  *
- * Both the old and new admin are Blendizzard contracts that implement __check_auth.
+ * Both the old and new admin are Ohloss contracts that implement __check_auth.
  * Their __check_auth delegates to a G-address admin which needs to sign the payload.
  *
  * The signature_payload is computed as hash(HashIdPreimageSorobanAuthorization(...))
- * based on the Blendizzard contract's auth entry (nonce, expiration, invocation).
+ * based on the Ohloss contract's auth entry (nonce, expiration, invocation).
  */
 
 import {
@@ -22,8 +22,8 @@ import { Api, assembleTransaction, Server } from "@stellar/stellar-sdk/rpc";
 
 // Contract addresses
 const feeVaultID = 'CBBY53VYJSMAWCBZZ7BHJZ5XSZNJUS4ZE6Q4RN7TKZGHPYHMEE467W7Y';
-const oldBlendizzardID = 'CAHPLVEDW2HWY2EOTCTECDK5ZRHAB5FLER3WGHQ5OPFMBMMFJSTBRJZU';
-const newBlendizzardID = 'CBOM2KGQDK4TMTIULH2UJWNLWEIXG47IM2RND4UDGM7KK5EQUQDFOVAY';
+const oldOhlossID = 'CAHPLVEDW2HWY2EOTCTECDK5ZRHAB5FLER3WGHQ5OPFMBMMFJSTBRJZU';
+const newOhlossID = 'CBOM2KGQDK4TMTIULH2UJWNLWEIXG47IM2RND4UDGM7KK5EQUQDFOVAY';
 
 const networkPassphrase = Networks.PUBLIC;
 
@@ -38,8 +38,8 @@ const pubkey = keypair.publicKey(); // GD2GA2JF6OJURU36COZQWJLPEJ7XC3GB25TBD7U4A
 
 console.log('=== Set Admin C-to-C Transfer ===\n');
 console.log('Fee Vault:', feeVaultID);
-console.log('Old Admin (Blendizzard):', oldBlendizzardID);
-console.log('New Admin (Blendizzard):', newBlendizzardID);
+console.log('Old Admin (Ohloss):', oldOhlossID);
+console.log('New Admin (Ohloss):', newOhlossID);
 console.log('Underlying Admin (G-address):', pubkey);
 console.log();
 
@@ -53,7 +53,7 @@ const tx = new TransactionBuilder(acct, {
     contract: feeVaultID,
     function: 'set_admin',
     args: [
-        Address.fromString(newBlendizzardID).toScVal(),
+        Address.fromString(newOhlossID).toScVal(),
     ]
 }))
 .setTimeout(0)
@@ -90,7 +90,7 @@ console.log();
 const op = tx.operations[0] as Operation.InvokeHostFunction;
 
 // Store modified entries and their computed signature payloads
-const modifiedEntries: { entry: xdr.SorobanAuthorizationEntry, signaturePayload: Buffer, blendizzardAddress: string }[] = [];
+const modifiedEntries: { entry: xdr.SorobanAuthorizationEntry, signaturePayload: Buffer, ohlossAddress: string }[] = [];
 
 for (let i = 0; i < simBefore.result.auth.length; i++) {
     const entry = simBefore.result.auth[i];
@@ -104,9 +104,9 @@ for (let i = 0; i < simBefore.result.auth.length; i++) {
             const addressCreds = credentials.address();
             const entryAddress = Address.fromScAddress(addressCreds.address()).toString();
 
-            // Check if this is one of the Blendizzard contracts
-            if (entryAddress === oldBlendizzardID || entryAddress === newBlendizzardID) {
-                console.log(`Processing Blendizzard auth entry for ${entryAddress}...`);
+            // Check if this is one of the Ohloss contracts
+            if (entryAddress === oldOhlossID || entryAddress === newOhlossID) {
+                console.log(`Processing Ohloss auth entry for ${entryAddress}...`);
 
                 // Set signature expiration and void signature
                 addressCreds.signatureExpirationLedger(expirationLedger);
@@ -129,7 +129,7 @@ for (let i = 0; i < simBefore.result.auth.length; i++) {
 
                 console.log('  Added __check_auth sub-invocation');
 
-                // Compute the signature payload for this Blendizzard contract's auth
+                // Compute the signature payload for this Ohloss contract's auth
                 // This is what __check_auth will call require_auth_for_args with
                 const authPreimage = xdr.HashIdPreimage.envelopeTypeSorobanAuthorization(
                     new xdr.HashIdPreimageSorobanAuthorization({
@@ -143,7 +143,7 @@ for (let i = 0; i < simBefore.result.auth.length; i++) {
 
                 console.log(`  Computed signature payload: ${signaturePayload.toString('hex').substring(0, 16)}...`);
 
-                modifiedEntries.push({ entry: entryClone, signaturePayload, blendizzardAddress: entryAddress });
+                modifiedEntries.push({ entry: entryClone, signaturePayload, ohlossAddress: entryAddress });
             }
         }
     } catch (err: any) {
@@ -159,10 +159,10 @@ for (let i = 0; i < simBefore.result.auth.length; i++) {
 // Create source account auth entries with the computed signature payloads
 console.log('\nStep 3: Creating source account auth entries with signature payloads...');
 
-for (const { signaturePayload, blendizzardAddress } of modifiedEntries) {
+for (const { signaturePayload, ohlossAddress } of modifiedEntries) {
     // The source account entry authorizes: "G-address authorizes require_auth_for_args([signaturePayload]) from __check_auth"
     const delegatedInvocation = new xdr.InvokeContractArgs({
-        contractAddress: Address.fromString(blendizzardAddress).toScAddress(),
+        contractAddress: Address.fromString(ohlossAddress).toScAddress(),
         functionName: "__check_auth",
         args: [xdr.ScVal.scvBytes(signaturePayload)], // The signature_payload that require_auth_for_args is called with
     });
@@ -176,7 +176,7 @@ for (const { signaturePayload, blendizzardAddress } of modifiedEntries) {
     });
 
     op.auth?.push(sourceAuthEntry);
-    console.log(`  Added source account auth entry for ${blendizzardAddress}`);
+    console.log(`  Added source account auth entry for ${ohlossAddress}`);
 }
 
 console.log(`\nTotal auth entries: ${op.auth?.length}`);

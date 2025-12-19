@@ -183,19 +183,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "blendizzard"
-version = "0.1.0"
-dependencies = [
- "blend-contract-sdk",
- "fee-vault-v2",
- "number-guess",
- "sep-40-oracle",
- "sep-41-token",
- "soroban-fixed-point-math 1.4.0 (git+https://github.com/kalepail/soroban-fixed-point-math)",
- "soroban-sdk",
-]
-
-[[package]]
 name = "block-buffer"
 version = "0.10.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -908,6 +895,19 @@ dependencies = [
 name = "number-guess"
 version = "0.1.0"
 dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
+name = "ohloss"
+version = "0.1.0"
+dependencies = [
+ "blend-contract-sdk",
+ "fee-vault-v2",
+ "number-guess",
+ "sep-40-oracle",
+ "sep-41-token",
+ "soroban-fixed-point-math 1.4.0 (git+https://github.com/kalepail/soroban-fixed-point-math)",
  "soroban-sdk",
 ]
 

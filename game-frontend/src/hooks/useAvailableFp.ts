@@ -6,7 +6,7 @@
 import { useEffect, useRef } from 'react'
 import { useGameStore } from '@/store/gameStore'
 import { useWalletStore } from '@/store/walletStore'
-import { getAvailableFp } from '@/services/blendizzardService'
+import { getAvailableFp } from '@/services/ohlossService'
 
 // Cache to prevent duplicate fetches across components
 const fpCache = new Map<string, { fp: bigint; fetchedAt: number }>()

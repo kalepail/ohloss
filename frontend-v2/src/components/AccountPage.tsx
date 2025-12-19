@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useWalletStore } from '@/stores/walletStore'
 import { Checkbox } from '@/components/ui'
 import {
-  useBlendizzardStore,
+  useOhlossStore,
   getFactionName,
   getFactionSymbol,
   getEpochTimeRemaining,
@@ -11,7 +11,7 @@ import {
   formatTimeRemaining,
   getTotalPlayerRewards,
   getTotalDevRewards,
-} from '@/stores/blendizzardStore'
+} from '@/stores/ohlossStore'
 
 // Refresh icon component
 function RefreshIcon({ spinning = false }: { spinning?: boolean }) {
@@ -130,7 +130,7 @@ export function AccountPage() {
     fetchAllRewards,
     refreshFactionStandings,
     reset,
-  } = useBlendizzardStore()
+  } = useOhlossStore()
 
   // Local state
   const [timeRemaining, setTimeRemaining] = useState(0)

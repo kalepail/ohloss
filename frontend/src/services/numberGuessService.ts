@@ -607,7 +607,7 @@ export class NumberGuessService {
     const client = this.createSigningClient(callerAddress, signer);
     const tx = await client.reveal_winner({ session_id: sessionId }, DEFAULT_METHOD_OPTIONS);
     // NOTE: Contract methods automatically simulate - footprint already includes all required storage keys
-    // (reveal_winner calls blendizzard.end_game() which accesses EpochPlayer data)
+    // (reveal_winner calls ohloss.end_game() which accesses EpochPlayer data)
 
     const validUntilLedgerSeq = authTtlMinutes
       ? await calculateValidUntilLedger(RPC_URL, authTtlMinutes)

@@ -117,7 +117,7 @@ export const usePendingGamesStore = create<PendingGamesState>()(
       },
     }),
     {
-      name: 'blendizzard-pending-games',
+      name: 'ohloss-pending-games',
     }
   )
 )

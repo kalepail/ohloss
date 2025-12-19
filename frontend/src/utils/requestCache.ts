@@ -178,7 +178,7 @@ export function createCacheKey(...parts: (string | number | bigint | boolean | n
  *     try {
  *       const data = await requestCache.dedupe(
  *         createCacheKey('player', userAddress),
- *         (signal) => blendizzardService.getPlayer(userAddress, signal),
+ *         (signal) => ohlossService.getPlayer(userAddress, signal),
  *         30000, // 30s TTL
  *         abortController.signal
  *       );

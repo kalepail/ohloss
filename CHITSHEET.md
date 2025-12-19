@@ -11,7 +11,7 @@ CAG5LRYQ5JVEUI5TEID72EYOVX44TTUJT5BQR2J6J77FH65PCCFAJDDH
 9c1d379661acb3cf357a8a3b8354a20d24a876f56e672b7095e8fbe89f697081
 CBBY53VYJSMAWCBZZ7BHJZ5XSZNJUS4ZE6Q4RN7TKZGHPYHMEE467W7Y
 
-// blendizzard
+// ohloss
 7f33cf1ee21f1021ed923bab93b94662c7e1fcdab18f2072d8685ca4aeb3abde
 OLD CAHPLVEDW2HWY2EOTCTECDK5ZRHAB5FLER3WGHQ5OPFMBMMFJSTBRJZU
 NEW CBOM2KGQDK4TMTIULH2UJWNLWEIXG47IM2RND4UDGM7KK5EQUQDFOVAY
@@ -20,13 +20,13 @@ NEW CBOM2KGQDK4TMTIULH2UJWNLWEIXG47IM2RND4UDGM7KK5EQUQDFOVAY
 6ebcc98aa39d6a40f5e8b61087fbe2c78033278e8def8a6feaa3c966f59d436f
 CDB6IODG5BNNVILLJXBXYZVR7NP4HDO2NL7WALWIXGIDMA6VY4V75CEX
 
-// deploy blendizzard
-stellar contract deploy --wasm target/wasm32v1-none/release/blendizzard.optimized.wasm --network mainnet --source rich -- --epoch_duration 60 --usdc_token CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75 --reserve_token_ids "[3]" --admin rich --blnd_token CD25MNVTZDL4Y3XBCPCJXGXATV5WUHHOWMYFF4YBEGU5FCPGMYTVG5JY --soroswap_router CAG5LRYQ5JVEUI5TEID72EYOVX44TTUJT5BQR2J6J77FH65PCCFAJDDH --fee_vault CBBY53VYJSMAWCBZZ7BHJZ5XSZNJUS4ZE6Q4RN7TKZGHPYHMEE467W7Y
+// deploy ohloss
+stellar contract deploy --wasm target/wasm32v1-none/release/ohloss.optimized.wasm --network mainnet --source rich -- --epoch_duration 60 --usdc_token CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75 --reserve_token_ids "[3]" --admin rich --blnd_token CD25MNVTZDL4Y3XBCPCJXGXATV5WUHHOWMYFF4YBEGU5FCPGMYTVG5JY --soroswap_router CAG5LRYQ5JVEUI5TEID72EYOVX44TTUJT5BQR2J6J77FH65PCCFAJDDH --fee_vault CBBY53VYJSMAWCBZZ7BHJZ5XSZNJUS4ZE6Q4RN7TKZGHPYHMEE467W7Y
 
-// install blendizzard
-stellar contract upload --wasm target/wasm32v1-none/release/blendizzard.optimized.wasm --source rich --fee 1000000000
+// install ohloss
+stellar contract upload --wasm target/wasm32v1-none/release/ohloss.optimized.wasm --source rich --fee 1000000000
 
-// upgrade blendizzard
+// upgrade ohloss
 stellar contract invoke --id CBOM2KGQDK4TMTIULH2UJWNLWEIXG47IM2RND4UDGM7KK5EQUQDFOVAY --source rich --fee 10000000 -- upgrade --new_wasm_hash 7f33cf1ee21f1021ed923bab93b94662c7e1fcdab18f2072d8685ca4aeb3abde
 
 // deposit 5 USDC

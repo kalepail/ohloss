@@ -35,7 +35,7 @@ export type DataKey = {
     tag: "Game";
     values: readonly [u32];
 } | {
-    tag: "BlendizzardAddress";
+    tag: "OhlossAddress";
     values: void;
 } | {
     tag: "Admin";
@@ -84,6 +84,14 @@ export interface Client {
         new_admin: string;
     }, options?: MethodOptions) => Promise<AssembledTransaction<null>>;
     /**
+     * Construct and simulate a get_ohloss transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+     * Get the current Ohloss contract address
+     *
+     * # Returns
+     * * `Address` - The Ohloss contract address
+     */
+    get_ohloss: (options?: MethodOptions) => Promise<AssembledTransaction<string>>;
+    /**
      * Construct and simulate a make_guess transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      * Make a guess for the current game.
      * Players can guess a number between 1 and 10.
@@ -99,12 +107,22 @@ export interface Client {
         guess: u32;
     }, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>;
     /**
+     * Construct and simulate a set_ohloss transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+     * Set a new Ohloss contract address
+     *
+     * # Arguments
+     * * `new_ohloss` - The new Ohloss contract address
+     */
+    set_ohloss: ({ new_ohloss }: {
+        new_ohloss: string;
+    }, options?: MethodOptions) => Promise<AssembledTransaction<null>>;
+    /**
      * Construct and simulate a start_game transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
      * Start a new game between two players with FP wagers.
-     * This creates a session in Blendizzard and locks FP before starting the game.
+     * This creates a session in Ohloss and locks FP before starting the game.
      *
      * **CRITICAL:** This method requires authorization from THIS contract (not players).
-     * Blendizzard will call `game_id.require_auth()` which checks this contract's address.
+     * Ohloss will call `game_id.require_auth()` which checks this contract's address.
      *
      * # Arguments
      * * `session_id` - Unique session identifier (u32)
@@ -122,7 +140,7 @@ export interface Client {
     }, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>;
     /**
      * Construct and simulate a reveal_winner transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-     * Reveal the winner of the game and submit outcome to Blendizzard.
+     * Reveal the winner of the game and submit outcome to Ohloss.
      * Can only be called after both players have made their guesses.
      * This generates the winning number, determines the winner, and ends the session.
      *
@@ -135,32 +153,14 @@ export interface Client {
     reveal_winner: ({ session_id }: {
         session_id: u32;
     }, options?: MethodOptions) => Promise<AssembledTransaction<Result<string>>>;
-    /**
-     * Construct and simulate a get_blendizzard transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-     * Get the current Blendizzard contract address
-     *
-     * # Returns
-     * * `Address` - The Blendizzard contract address
-     */
-    get_blendizzard: (options?: MethodOptions) => Promise<AssembledTransaction<string>>;
-    /**
-     * Construct and simulate a set_blendizzard transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-     * Set a new Blendizzard contract address
-     *
-     * # Arguments
-     * * `new_blendizzard` - The new Blendizzard contract address
-     */
-    set_blendizzard: ({ new_blendizzard }: {
-        new_blendizzard: string;
-    }, options?: MethodOptions) => Promise<AssembledTransaction<null>>;
 }
 export declare class Client extends ContractClient {
     readonly options: ContractClientOptions;
     static deploy<T = Client>(
     /** Constructor/Initialization Args for the contract's `__constructor` method */
-    { admin, blendizzard }: {
+    { admin, ohloss }: {
         admin: string;
-        blendizzard: string;
+        ohloss: string;
     }, 
     /** Options for initializing a Client as well as for calling a method, with extras specific to deploying. */
     options: MethodOptions & Omit<ContractClientOptions, "contractId"> & {
@@ -177,10 +177,10 @@ export declare class Client extends ContractClient {
         get_game: (json: string) => AssembledTransaction<Result<Game, import("@stellar/stellar-sdk/contract").ErrorMessage>>;
         get_admin: (json: string) => AssembledTransaction<string>;
         set_admin: (json: string) => AssembledTransaction<null>;
+        get_ohloss: (json: string) => AssembledTransaction<string>;
         make_guess: (json: string) => AssembledTransaction<Result<void, import("@stellar/stellar-sdk/contract").ErrorMessage>>;
+        set_ohloss: (json: string) => AssembledTransaction<null>;
         start_game: (json: string) => AssembledTransaction<Result<void, import("@stellar/stellar-sdk/contract").ErrorMessage>>;
         reveal_winner: (json: string) => AssembledTransaction<Result<string, import("@stellar/stellar-sdk/contract").ErrorMessage>>;
-        get_blendizzard: (json: string) => AssembledTransaction<string>;
-        set_blendizzard: (json: string) => AssembledTransaction<null>;
     };
 }

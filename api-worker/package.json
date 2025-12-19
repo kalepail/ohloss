@@ -1,5 +1,5 @@
 {
-  "name": "blendizzard-api",
+  "name": "ohloss-api",
   "private": true,
   "version": "0.0.1",
   "type": "module",
@@ -8,8 +8,8 @@
     "deploy": "wrangler deploy"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20251217.0",
+    "@cloudflare/workers-types": "^4.20251219.0",
     "typescript": "^5.9.3",
-    "wrangler": "^4.55.0"
+    "wrangler": "^4.56.0"
   }
 }

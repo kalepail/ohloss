@@ -12,7 +12,7 @@ export function Navbar() {
           {/* Logo */}
           <div className="flex items-center gap-3">
             <div className="text-2xl font-bold bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-text text-transparent">
-              Blendizzard
+              Ohloss
             </div>
             <span className="hidden sm:inline text-sm text-gray-500 dark:text-gray-400">
               Faction Gaming

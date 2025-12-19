@@ -8,7 +8,7 @@ export const NETWORK_PASSPHRASE =
     : 'Test SDF Network ; September 2015';
 
 // Contract addresses
-export const BLENDIZZARD_CONTRACT = import.meta.env.VITE_BLENDIZZARD_CONTRACT;
+export const OHLOSS_CONTRACT = import.meta.env.VITE_OHLOSS_CONTRACT;
 export const GAME_CONTRACT = import.meta.env.VITE_GAME_CONTRACT;
 export const VAULT_CONTRACT = import.meta.env.VITE_VAULT_CONTRACT;
 

@@ -15,7 +15,7 @@ const { Server: RpcServer } = rpc
 export const STELLAR_CONFIG = {
   rpcUrl: import.meta.env.VITE_RPC_URL || 'https://soroban-testnet.stellar.org',
   networkPassphrase: import.meta.env.VITE_NETWORK_PASSPHRASE || 'Test SDF Network ; September 2015',
-  blendizzardContract: import.meta.env.VITE_BLENDIZZARD_CONTRACT || '',
+  ohlossContract: import.meta.env.VITE_OHLOSS_CONTRACT || '',
   feeVaultContract: import.meta.env.VITE_FEE_VAULT_CONTRACT || '',
   usdcTokenContract: import.meta.env.VITE_USDC_TOKEN_CONTRACT || '',
   nativeTokenContract: import.meta.env.VITE_NATIVE_TOKEN_CONTRACT || '',
@@ -64,13 +64,13 @@ export async function getVaultUnderlyingBalance(address: string): Promise<bigint
 // =============================================================================
 // Contract Storage Key Builders
 // =============================================================================
-// These match the DataKey enum in contracts/blendizzard/src/storage.rs
+// These match the DataKey enum in contracts/ohloss/src/storage.rs
 
 /**
- * Build a contract storage key for the Blendizzard contract
+ * Build a contract storage key for the Ohloss contract
  * Storage keys match the DataKey enum in the Rust contract
  */
-export function buildStorageKey(dataKey: BlendizzardDataKey): xdr.ScVal {
+export function buildStorageKey(dataKey: OhlossDataKey): xdr.ScVal {
   switch (dataKey.type) {
     case 'Admin':
       return xdr.ScVal.scvVec([xdr.ScVal.scvSymbol('Admin')])
@@ -142,7 +142,7 @@ export function buildStorageKey(dataKey: BlendizzardDataKey): xdr.ScVal {
 }
 
 // DataKey types matching the Rust contract
-export type BlendizzardDataKey =
+export type OhlossDataKey =
   | { type: 'Admin' }
   | { type: 'Config' }
   | { type: 'CurrentEpoch' }
@@ -372,7 +372,7 @@ export function parsePlayer(data: xdr.LedgerEntryData | null): Player | null {
 /**
  * Parse Config from contract data
  */
-export function parseConfig(data: xdr.LedgerEntryData | null): BlendizzardConfig | null {
+export function parseConfig(data: xdr.LedgerEntryData | null): OhlossConfig | null {
   if (!data) return null
 
   try {
@@ -592,7 +592,7 @@ export async function getPlayerDataAndBalances(
   vaultBalance: bigint
 }> {
   const rpcClient = getRpc()
-  const contractId = STELLAR_CONFIG.blendizzardContract
+  const contractId = STELLAR_CONFIG.ohlossContract
 
   try {
     // Build ledger keys for player data, epoch info, and token balances
@@ -639,7 +639,7 @@ export async function getPlayerDataAndBalances(
           const contractAddress = Address.fromScAddress(contractData.contract()).toString()
 
           if (contractAddress === contractId) {
-            // This is from blendizzard contract - check the key to determine type
+            // This is from ohloss contract - check the key to determine type
             const key = contractData.key()
             if (key.switch().name === 'scvVec') {
               const vec = key.vec()
@@ -755,7 +755,7 @@ export interface Player {
   lastEpochBalance: bigint
 }
 
-export interface BlendizzardConfig {
+export interface OhlossConfig {
   feeVault: string
   soroswapRouter: string
   blndToken: string

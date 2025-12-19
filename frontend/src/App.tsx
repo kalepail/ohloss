@@ -36,7 +36,7 @@ function WalletSelection() {
       <div className="relative bg-white/70 backdrop-blur-xl rounded-3xl p-10 shadow-2xl border-2 border-white/60 max-w-3xl w-full">
         <div className="text-center mb-10">
           <h1 className="text-5xl font-black bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-3">
-            Welcome to Blendizzard
+            Welcome to Ohloss
           </h1>
           <p className="text-gray-700 font-semibold text-lg">
             Faction-based competitive gaming on Stellar Soroban

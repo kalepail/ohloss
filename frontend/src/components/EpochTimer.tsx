@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { blendizzardService } from '@/services/blendizzardService';
+import { ohlossService } from '@/services/ohlossService';
 import { requestCache, createCacheKey } from '@/utils/requestCache';
 import { useWallet } from '@/hooks/useWallet';
 
@@ -25,7 +25,7 @@ export function EpochTimer({ currentEpoch, onEpochCycled }: EpochTimerProps) {
         // Use requestCache to prevent duplicate calls
         const epochInfo = await requestCache.dedupe(
           createCacheKey('epoch', currentEpoch),
-          () => blendizzardService.getEpoch(currentEpoch),
+          () => ohlossService.getEpoch(currentEpoch),
           30000,
           abortController.signal
         );
@@ -87,7 +87,7 @@ export function EpochTimer({ currentEpoch, onEpochCycled }: EpochTimerProps) {
       }
 
       const signer = getContractSigner();
-      const newEpoch = await blendizzardService.cycleEpoch(publicKey, signer);
+      const newEpoch = await ohlossService.cycleEpoch(publicKey, signer);
 
       setSuccess(`Successfully cycled to Epoch #${newEpoch}!`);
       setEpochEnded(false);

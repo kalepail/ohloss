@@ -1,10 +1,10 @@
-# Blendizzard
+# Ohloss
 
-A faction-based competitive gaming protocol built on Stellar's Soroban smart contract platform. Blendizzard combines DeFi yield generation with gaming mechanics, enabling players to compete using faction points earned from their deposits.
+A faction-based competitive gaming protocol built on Stellar's Soroban smart contract platform. Ohloss combines DeFi yield generation with gaming mechanics, enabling players to compete using faction points earned from their deposits.
 
 ## Overview
 
-Blendizzard creates a gamified DeFi experience where:
+Ohloss creates a gamified DeFi experience where:
 
 - **Players deposit assets** into a yield-generating vault (via Blend protocol's fee-vault-v2)
 - **Earn faction points (FP)** based on deposit amount and time held (asymptotic multipliers)
@@ -37,9 +37,9 @@ Blendizzard creates a gamified DeFi experience where:
 ## Project Structure
 
 ```text
-blendizzard/
+ohloss/
 ├── contracts/
-│   ├── blendizzard/              # Main Blendizzard contract
+│   ├── ohloss/              # Main Ohloss contract
 │   │   ├── src/
 │   │   │   ├── lib.rs            # Main contract interface (27 exported functions)
 │   │   │   ├── types.rs          # Data structures and configuration
@@ -93,11 +93,11 @@ curl -fsSL https://bun.sh/install | bash
 ### Build the Contract
 
 ```bash
-cd contracts/blendizzard
+cd contracts/ohloss
 stellar contract build
 ```
 
-**Output**: `target/wasm32v1-none/release/blendizzard.wasm`
+**Output**: `target/wasm32v1-none/release/ohloss.wasm`
 
 ### Run Tests
 
@@ -120,7 +120,7 @@ bun test
 ```bash
 # Deploy contract
 stellar contract deploy \
-  --wasm target/wasm32v1-none/release/blendizzard.wasm \
+  --wasm target/wasm32v1-none/release/ohloss.wasm \
   --source admin \
   --network testnet
 
@@ -144,19 +144,19 @@ stellar contract invoke \
 
 ```bash
 # Current mainnet contract
-BLENDIZZARD=CBOM2KGQDK4TMTIULH2UJWNLWEIXG47IM2RND4UDGM7KK5EQUQDFOVAY
+OHLOSS=CBOM2KGQDK4TMTIULH2UJWNLWEIXG47IM2RND4UDGM7KK5EQUQDFOVAY
 ```
 
 ## Architecture
 
 ### External Dependencies
 
-Blendizzard integrates with three external Soroban contracts:
+Ohloss integrates with three external Soroban contracts:
 
 1. **fee-vault-v2** ([script3/fee-vault-v2](https://github.com/script3/fee-vault-v2))
    - Yield-generating vault for BLND token
    - Players interact directly for deposits/withdrawals
-   - Blendizzard queries balances and acts as admin to withdraw accumulated fees
+   - Ohloss queries balances and acts as admin to withdraw accumulated fees
    - Methods: `deposit()`, `withdraw()`, `get_underlying_tokens()`, `admin_withdraw()`
 
 2. **Soroswap Router** ([soroswap/core](https://github.com/soroswap/core))
@@ -233,7 +233,7 @@ Every 4 days (345,600 seconds):
 ### Vault Queries
 - `get_vault_balance` - Query player's vault balance (via fee-vault-v2)
 
-*Note: Players deposit/withdraw directly via fee-vault-v2, not through Blendizzard.*
+*Note: Players deposit/withdraw directly via fee-vault-v2, not through Ohloss.*
 
 ### Faction Management
 - `select_faction` - Choose faction (WholeNoodle/PointyStick/SpecialRock)
@@ -270,7 +270,7 @@ Every 4 days (345,600 seconds):
 [workspace.dependencies]
 new-package = "x.y.z"
 
-# 2. Use in contract (contracts/blendizzard/Cargo.toml)
+# 2. Use in contract (contracts/ohloss/Cargo.toml)
 [dependencies]
 new-package = { workspace = true }
 ```
@@ -282,15 +282,15 @@ new-package = { workspace = true }
 ```bash
 cd bunt
 stellar contract bindings typescript \
-  --wasm ../contracts/blendizzard/target/wasm32v1-none/release/blendizzard.wasm \
-  --output-dir ./bindings/blendizzard \
+  --wasm ../contracts/ohloss/target/wasm32v1-none/release/ohloss.wasm \
+  --output-dir ./bindings/ohloss \
   --contract-id <CONTRACT_ID>
 ```
 
 ### Writing Tests
 
 ```rust
-// Rust tests in contracts/blendizzard/src/tests/
+// Rust tests in contracts/ohloss/src/tests/
 #[test]
 fn test_deposit_withdraw() {
     let env = Env::default();
@@ -356,6 +356,6 @@ This is a production smart contract protocol. All changes must:
 
 ## Support
 
-- Issues: [GitHub Issues](https://github.com/[your-org]/blendizzard/issues)
+- Issues: [GitHub Issues](https://github.com/[your-org]/ohloss/issues)
 - Documentation: See `docs/` directory
 - Security: See [SECURITY.md](docs/SECURITY.md) for reporting vulnerabilities

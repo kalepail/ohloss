@@ -11,7 +11,7 @@ import PlayerCard from '@/components/PlayerCard'
 import ShareInvite from '@/components/ShareInvite'
 import Confetti from '@/components/Confetti'
 import * as numberGuessService from '@/services/numberGuessService'
-import * as blendizzardService from '@/services/blendizzardService'
+import * as ohlossService from '@/services/ohlossService'
 import { preFillFpCache } from '@/hooks/useAvailableFp'
 import { walletBridge } from '@/services/walletBridge'
 
@@ -110,7 +110,7 @@ export default function GamePage() {
 
     const loadInitialData = async () => {
       setCheckingFaction(true)
-      const data = await blendizzardService.getGamePageData(address)
+      const data = await ohlossService.getGamePageData(address)
       setHasFaction(data.hasFaction)
       // Set the store value directly AND fill the cache for other components
       setAvailableFp(data.availableFp)

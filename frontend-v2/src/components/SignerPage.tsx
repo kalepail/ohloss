@@ -30,7 +30,7 @@ import {
   formatCredentialIdShort,
 } from '@/lib/pendingPasskeys'
 import { getPlayerData, selectFaction } from '@/lib/contractService'
-import { getFactionName, getFactionSymbol, FACTION_NAMES } from '@/stores/blendizzardStore'
+import { getFactionName, getFactionSymbol, FACTION_NAMES } from '@/stores/ohlossStore'
 
 // Message types (matching game-frontend/src/types/messages.ts)
 interface BaseMessage {

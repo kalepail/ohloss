@@ -305,7 +305,7 @@ export async function prepareStartGame(
     // - We use player1's address as a temporary placeholder for player2 during simulation
     //   so faction validation passes.
     // - If player2 == player1 and we simulate with the full wager for both sides,
-    //   Blendizzard will attempt to deduct FP twice from the same account and simulation
+    //   Ohloss will attempt to deduct FP twice from the same account and simulation
     //   can fail with InsufficientFactionPoints.
     // - To avoid this, we set the placeholder player2 wager to the smallest valid amount (1).
     //

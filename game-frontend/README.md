@@ -37,7 +37,7 @@ bun run build    # Production build
 |----------|-------------|
 | `VITE_RPC_URL` | Stellar RPC endpoint |
 | `VITE_NUMBER_GUESS_CONTRACT` | Number Guess contract address |
-| `VITE_BLENDIZZARD_CONTRACT` | Blendizzard contract address |
+| `VITE_OHLOSS_CONTRACT` | Ohloss contract address |
 | `VITE_OHLOSS_URL` | frontend-v2 URL for wallet popup |
 
 ## Game Flow

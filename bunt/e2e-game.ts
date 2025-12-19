@@ -3,7 +3,7 @@
  *
  * This script demonstrates a complete game flow:
  * 1. Players deposit USDC to fee-vault
- * 2. Players select factions in blendizzard
+ * 2. Players select factions in ohloss
  * 3. Start a number-guess game (locks FP)
  * 4. Players make guesses
  * 5. Reveal winner (burns FP, updates faction standings)
@@ -13,7 +13,7 @@
  * See CHITSHEET.md for contract addresses.
  */
 
-import { Client as BlendizzardContract, type Player, type EpochPlayer, type EpochInfo } from 'blendizzard';
+import { Client as OhlossContract, type Player, type EpochPlayer, type EpochInfo } from 'ohloss';
 import { Client as FeeVaultContract } from 'fee-vault';
 import { Client as NumberGuessContract, type Game } from 'number-guess';
 import { Keypair, Networks, BASE_FEE, contract } from '@stellar/stellar-sdk';
@@ -39,7 +39,7 @@ const DEFAULT_METHOD_OPTIONS = {
 } as const;
 
 // Contract addresses from CHITSHEET.md
-const BLENDIZZARD_ID = 'CAHPLVEDW2HWY2EOTCTECDK5ZRHAB5FLER3WGHQ5OPFMBMMFJSTBRJZU';
+const OHLOSS_ID = 'CAHPLVEDW2HWY2EOTCTECDK5ZRHAB5FLER3WGHQ5OPFMBMMFJSTBRJZU';
 const FEE_VAULT_ID = 'CBBY53VYJSMAWCBZZ7BHJZ5XSZNJUS4ZE6Q4RN7TKZGHPYHMEE467W7Y';
 const NUMBER_GUESS_ID = 'CDB6IODG5BNNVILLJXBXYZVR7NP4HDO2NL7WALWIXGIDMA6VY4V75CEX';
 
@@ -200,7 +200,7 @@ async function queryContract<T>(
 // ============================================================================
 
 async function main() {
-  console.log('🎮 Blendizzard End-to-End Game Test');
+  console.log('🎮 Ohloss End-to-End Game Test');
   console.log('=' .repeat(60));
 
   // Initialize players
@@ -212,8 +212,8 @@ async function main() {
   console.log(`   Player 2: ${player2.publicKey()}`);
 
   // Create contract clients
-  const blendizzard1 = createClient(BlendizzardContract, BLENDIZZARD_ID, player1);
-  const blendizzard2 = createClient(BlendizzardContract, BLENDIZZARD_ID, player2);
+  const ohloss1 = createClient(OhlossContract, OHLOSS_ID, player1);
+  const ohloss2 = createClient(OhlossContract, OHLOSS_ID, player2);
   const feeVault1 = createClient(FeeVaultContract, FEE_VAULT_ID, player1);
   const feeVault2 = createClient(FeeVaultContract, FEE_VAULT_ID, player2);
   const numberGuess1 = createClient(NumberGuessContract, NUMBER_GUESS_ID, player1);
@@ -263,7 +263,7 @@ async function main() {
   const FACTION_POINTY_STICK = 1;
 
   await logTx(
-    blendizzard1.select_faction({
+    ohloss1.select_faction({
       player: player1.publicKey(),
       faction: FACTION_WHOLE_NOODLE,
     }, DEFAULT_METHOD_OPTIONS),
@@ -271,7 +271,7 @@ async function main() {
   );
 
   await logTx(
-    blendizzard2.select_faction({
+    ohloss2.select_faction({
       player: player2.publicKey(),
       faction: FACTION_POINTY_STICK,
     }, DEFAULT_METHOD_OPTIONS),
@@ -286,11 +286,11 @@ async function main() {
   console.log('-'.repeat(60));
 
   const player1Data = await queryContract<Player>(
-    blendizzard1.get_player({ player: player1.publicKey() }, DEFAULT_METHOD_OPTIONS),
+    ohloss1.get_player({ player: player1.publicKey() }, DEFAULT_METHOD_OPTIONS),
     'Get Player 1 data'
   );
   const player2Data = await queryContract<Player>(
-    blendizzard2.get_player({ player: player2.publicKey() }, DEFAULT_METHOD_OPTIONS),
+    ohloss2.get_player({ player: player2.publicKey() }, DEFAULT_METHOD_OPTIONS),
     'Get Player 2 data'
   );
 
@@ -310,16 +310,16 @@ async function main() {
   console.log('-'.repeat(60));
 
   // // Get current epoch (doesn't return Result type, so get directly)
-  const currentEpochTx = await blendizzard1.get_current_epoch(DEFAULT_METHOD_OPTIONS);
+  const currentEpochTx = await ohloss1.get_current_epoch(DEFAULT_METHOD_OPTIONS);
   const currentEpoch = currentEpochTx.result;
 
   // First, query each player's available FP
   const p1EpochBefore = await queryContract<EpochPlayer>(
-    blendizzard1.get_epoch_player({ epoch: currentEpoch, player: player1.publicKey() }, DEFAULT_METHOD_OPTIONS),
+    ohloss1.get_epoch_player({ epoch: currentEpoch, player: player1.publicKey() }, DEFAULT_METHOD_OPTIONS),
     'Get Player 1 epoch data'
   );
   const p2EpochBefore = await queryContract<EpochPlayer>(
-    blendizzard2.get_epoch_player({ epoch: currentEpoch, player: player2.publicKey() }, DEFAULT_METHOD_OPTIONS),
+    ohloss2.get_epoch_player({ epoch: currentEpoch, player: player2.publicKey() }, DEFAULT_METHOD_OPTIONS),
     'Get Player 2 epoch data'
   );
 
@@ -348,17 +348,17 @@ async function main() {
       player1_wager: wager,
       player2_wager: wager,
     }, DEFAULT_METHOD_OPTIONS),
-    'Start number guess game (locks FP via blendizzard)',
+    'Start number guess game (locks FP via ohloss)',
     signers  // Pass signers map for multi-signature support
   );
 
   // Check FP state after game start
   const p1EpochAfterStart = await queryContract<EpochPlayer>(
-    blendizzard1.get_epoch_player({ epoch: currentEpoch, player: player1.publicKey() }, DEFAULT_METHOD_OPTIONS),
+    ohloss1.get_epoch_player({ epoch: currentEpoch, player: player1.publicKey() }, DEFAULT_METHOD_OPTIONS),
     'Get Player 1 epoch data after game start'
   );
   const p2EpochAfterStart = await queryContract<EpochPlayer>(
-    blendizzard2.get_epoch_player({ epoch: currentEpoch, player: player2.publicKey() }, DEFAULT_METHOD_OPTIONS),
+    ohloss2.get_epoch_player({ epoch: currentEpoch, player: player2.publicKey() }, DEFAULT_METHOD_OPTIONS),
     'Get Player 2 epoch data after game start'
   );
 
@@ -440,11 +440,11 @@ async function main() {
   console.log('-'.repeat(60));
 
   const p1EpochFinal = await queryContract<EpochPlayer>(
-    blendizzard1.get_epoch_player({ epoch: currentEpoch, player: player1.publicKey() }, DEFAULT_METHOD_OPTIONS),
+    ohloss1.get_epoch_player({ epoch: currentEpoch, player: player1.publicKey() }, DEFAULT_METHOD_OPTIONS),
     'Get Player 1 final epoch data'
   );
   const p2EpochFinal = await queryContract<EpochPlayer>(
-    blendizzard2.get_epoch_player({ epoch: currentEpoch, player: player2.publicKey() }, DEFAULT_METHOD_OPTIONS),
+    ohloss2.get_epoch_player({ epoch: currentEpoch, player: player2.publicKey() }, DEFAULT_METHOD_OPTIONS),
     'Get Player 2 final epoch data'
   );
 
@@ -467,7 +467,7 @@ async function main() {
 
   // Get faction standings for the current epoch
   const epochInfo = await queryContract<EpochInfo>(
-    blendizzard1.get_epoch({ epoch: currentEpoch }, DEFAULT_METHOD_OPTIONS),
+    ohloss1.get_epoch({ epoch: currentEpoch }, DEFAULT_METHOD_OPTIONS),
     `Get epoch ${currentEpoch} data`
   );
 

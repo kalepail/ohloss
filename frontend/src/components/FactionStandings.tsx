@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { blendizzardService } from '@/services/blendizzardService';
+import { ohlossService } from '@/services/ohlossService';
 import { requestCache, createCacheKey } from '@/utils/requestCache';
 import { USDC_DECIMALS } from '@/utils/constants';
 
@@ -34,7 +34,7 @@ export function FactionStandings({ currentEpoch, refreshTrigger }: FactionStandi
         // Use requestCache to prevent duplicate calls
         const epochInfo = await requestCache.dedupe(
           createCacheKey('epoch', currentEpoch),
-          () => blendizzardService.getEpoch(currentEpoch),
+          () => ohlossService.getEpoch(currentEpoch),
           30000,
           abortController.signal
         );

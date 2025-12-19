@@ -4,7 +4,7 @@ import { useGameStore } from '@/store/gameStore'
 import { useWalletStore } from '@/store/walletStore'
 import { useAvailableFp } from '@/hooks/useAvailableFp'
 import { formatWager } from '@/types/game'
-import { hasFactionSelected } from '@/services/blendizzardService'
+import { hasFactionSelected } from '@/services/ohlossService'
 
 type Mode = 'menu' | 'create' | 'join'
 

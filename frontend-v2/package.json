@@ -1,5 +1,5 @@
 {
-  "name": "blendizzard-frontend-v2",
+  "name": "ohloss-frontend-v2",
   "private": true,
   "version": "0.0.1",
   "type": "module",
@@ -12,7 +12,7 @@
   "dependencies": {
     "@stellar/stellar-sdk": "^14.4.2",
     "@tailwindcss/postcss": "^4.1.18",
-    "blendizzard": "file:../bunt/bindings/blendizzard",
+    "ohloss": "file:../bunt/bindings/ohloss",
     "fee-vault": "file:../bunt/bindings/fee-vault",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
@@ -21,7 +21,7 @@
     "zustand": "^5.0.9"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20251217.0",
+    "@cloudflare/workers-types": "^4.20251219.0",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.2",

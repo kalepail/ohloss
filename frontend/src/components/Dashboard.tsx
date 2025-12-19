@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { blendizzardService } from '@/services/blendizzardService';
+import { ohlossService } from '@/services/ohlossService';
 import { feeVaultService } from '@/services/feeVaultService';
 import { balanceService } from '@/services/balanceService';
 import { requestCache, createCacheKey } from '@/utils/requestCache';
@@ -49,7 +49,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
       setSwitchingFaction(true);
       const signer = getContractSigner();
 
-      await blendizzardService.selectFaction(userAddress, newFactionId, signer);
+      await ohlossService.selectFaction(userAddress, newFactionId, signer);
 
       // Refresh dashboard data to update faction display
       await loadDashboardData();
@@ -75,7 +75,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
         const [epoch, balance, xlm] = await Promise.all([
           requestCache.dedupe(
             'current-epoch',
-            () => blendizzardService.getCurrentEpoch(),
+            () => ohlossService.getCurrentEpoch(),
             30000,
             abortController.signal
           ),
@@ -102,13 +102,13 @@ export function Dashboard({ onLogout }: DashboardProps) {
           const [playerData, epochPlayerData] = await Promise.all([
             requestCache.dedupe(
               createCacheKey('player', userAddress),
-              () => blendizzardService.getPlayer(userAddress),
+              () => ohlossService.getPlayer(userAddress),
               30000,
               abortController.signal
             ),
             requestCache.dedupe(
               createCacheKey('epoch-player', epoch, userAddress),
-              () => blendizzardService.getEpochPlayer(epoch, userAddress),
+              () => ohlossService.getEpochPlayer(epoch, userAddress),
               30000,
               abortController.signal
             ),
@@ -150,7 +150,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
       try {
         // Invalidate epoch cache and fetch fresh data
         requestCache.invalidate('current-epoch');
-        const newEpoch = await blendizzardService.getCurrentEpoch();
+        const newEpoch = await ohlossService.getCurrentEpoch();
 
         // If epoch changed, update everything
         if (newEpoch !== currentEpoch) {
@@ -199,7 +199,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
       // Re-trigger the main useEffect by updating a dependency if needed
       // For now, we'll manually fetch without loading state for refreshes
       const [epoch, balance, xlm] = await Promise.all([
-        blendizzardService.getCurrentEpoch(),
+        ohlossService.getCurrentEpoch(),
         feeVaultService.getUserBalance(userAddress),
         balanceService.getXLMBalance(userAddress),
       ]);
@@ -210,11 +210,11 @@ export function Dashboard({ onLogout }: DashboardProps) {
 
       // Try to get player data
       try {
-        const playerData = await blendizzardService.getPlayer(userAddress);
+        const playerData = await ohlossService.getPlayer(userAddress);
         setFaction(playerData.selected_faction); // Next epoch faction
 
         // Get epoch player data for FP and current epoch faction
-        const epochPlayerData = await blendizzardService.getEpochPlayer(epoch, userAddress);
+        const epochPlayerData = await ohlossService.getEpochPlayer(epoch, userAddress);
         setAvailableFP(BigInt(epochPlayerData.available_fp));
         setCurrentEpochFaction(epochPlayerData.epoch_faction !== null && epochPlayerData.epoch_faction !== undefined
           ? epochPlayerData.epoch_faction
@@ -276,7 +276,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
         <div className="px-4 sm:px-8 py-4 sm:py-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex-shrink-0">
             <h1 className="text-2xl sm:text-4xl font-black bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-1">
-              Blendizzard
+              Ohloss
             </h1>
             <p className="text-xs sm:text-sm font-medium text-gray-500">
               Faction Gaming Protocol

@@ -17,7 +17,7 @@ interface LaunchtubeResponse {
 export class LaunchtubeService {
   private readonly baseUrl: string;
   private readonly jwt: string | undefined;
-  private readonly clientName = 'blendizzard';
+  private readonly clientName = 'ohloss';
   private readonly clientVersion: string;
 
   constructor() {

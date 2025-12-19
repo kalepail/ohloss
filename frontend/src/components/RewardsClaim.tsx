@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { blendizzardService } from '@/services/blendizzardService';
+import { ohlossService } from '@/services/ohlossService';
 import { feeVaultService } from '@/services/feeVaultService';
 import { requestCache, createCacheKey } from '@/utils/requestCache';
 import { USDC_DECIMALS } from '@/utils/constants';
@@ -34,8 +34,8 @@ export function RewardsClaim({ userAddress, currentEpoch, onSuccess }: RewardsCl
         // Fetch config and vault balance in parallel with epoch checks
         const [config, vaultBalance] = await Promise.all([
           requestCache.dedupe(
-            createCacheKey('blendizzard-config'),
-            () => blendizzardService.getConfig(),
+            createCacheKey('ohloss-config'),
+            () => ohlossService.getConfig(),
             60000, // Cache for 1 minute
             abortController.signal
           ),
@@ -65,7 +65,7 @@ export function RewardsClaim({ userAddress, currentEpoch, onSuccess }: RewardsCl
           epochsToCheck.map((epoch) =>
             requestCache.dedupe(
               createCacheKey('can-claim-epoch', userAddress, epoch),
-              () => blendizzardService.canClaimEpochReward(userAddress, epoch),
+              () => ohlossService.canClaimEpochReward(userAddress, epoch),
               30000,
               abortController.signal
             ).then((canClaim) => ({ epoch, canClaim }))
@@ -108,7 +108,7 @@ export function RewardsClaim({ userAddress, currentEpoch, onSuccess }: RewardsCl
       setSuccess(null);
 
       const signer = getContractSigner();
-      const amount = await blendizzardService.claimEpochReward(userAddress, epoch, signer);
+      const amount = await ohlossService.claimEpochReward(userAddress, epoch, signer);
 
       const formatted = formatUsdc(amount);
 

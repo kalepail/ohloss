@@ -5,19 +5,19 @@
 //! A simple two-player guessing game where players guess a number between 1 and 10.
 //! The player whose guess is closest to the randomly generated number wins.
 //!
-//! **Blendizzard Integration:**
-//! This game is Blendizzard-aware and enforces all games to be played through the
-//! Blendizzard contract. Games cannot be started or completed without FP involvement.
+//! **Ohloss Integration:**
+//! This game is Ohloss-aware and enforces all games to be played through the
+//! Ohloss contract. Games cannot be started or completed without FP involvement.
 
 use soroban_sdk::{
     contract, contractclient, contracterror, contractimpl, contracttype, vec, Address, Bytes,
     BytesN, Env, IntoVal,
 };
 
-// Import Blendizzard contract interface
-// This allows us to call into the Blendizzard contract
-#[contractclient(name = "BlendizzardClient")]
-pub trait Blendizzard {
+// Import Ohloss contract interface
+// This allows us to call into the Ohloss contract
+#[contractclient(name = "OhlossClient")]
+pub trait Ohloss {
     fn start_game(
         env: Env,
         game_id: Address,
@@ -50,11 +50,11 @@ pub enum Error {
 // Events (REMOVED)
 // ============================================================================
 //
-// All events have been removed to avoid duplication with Blendizzard events.
-// Game lifecycle is tracked through Blendizzard's GameStarted and GameEnded events.
+// All events have been removed to avoid duplication with Ohloss events.
+// Game lifecycle is tracked through Ohloss's GameStarted and GameEnded events.
 // Game-specific state (guesses, winning_number) can be queried via get_game().
 //
-// This keeps the event stream clean and makes Blendizzard the single source of
+// This keeps the event stream clean and makes Ohloss the single source of
 // truth for game lifecycle monitoring.
 
 // ============================================================================
@@ -78,7 +78,7 @@ pub struct Game {
 #[derive(Clone)]
 pub enum DataKey {
     Game(u32),
-    BlendizzardAddress,
+    OhlossAddress,
     Admin,
 }
 
@@ -101,24 +101,24 @@ pub struct NumberGuessContract;
 
 #[contractimpl]
 impl NumberGuessContract {
-    /// Initialize the contract with Blendizzard address and admin
+    /// Initialize the contract with Ohloss address and admin
     ///
     /// # Arguments
     /// * `admin` - Admin address (can upgrade contract)
-    /// * `blendizzard` - Address of the Blendizzard contract
-    pub fn __constructor(env: Env, admin: Address, blendizzard: Address) {
-        // Store admin and Blendizzard address
+    /// * `ohloss` - Address of the Ohloss contract
+    pub fn __constructor(env: Env, admin: Address, ohloss: Address) {
+        // Store admin and Ohloss address
         env.storage().instance().set(&DataKey::Admin, &admin);
         env.storage()
             .instance()
-            .set(&DataKey::BlendizzardAddress, &blendizzard);
+            .set(&DataKey::OhlossAddress, &ohloss);
     }
 
     /// Start a new game between two players with FP wagers.
-    /// This creates a session in Blendizzard and locks FP before starting the game.
+    /// This creates a session in Ohloss and locks FP before starting the game.
     ///
     /// **CRITICAL:** This method requires authorization from THIS contract (not players).
-    /// Blendizzard will call `game_id.require_auth()` which checks this contract's address.
+    /// Ohloss will call `game_id.require_auth()` which checks this contract's address.
     ///
     /// # Arguments
     /// * `session_id` - Unique session identifier (u32)
@@ -153,19 +153,19 @@ impl NumberGuessContract {
             player2_wager.into_val(&env),
         ]);
 
-        // Get Blendizzard address
-        let blendizzard_addr: Address = env
+        // Get Ohloss address
+        let ohloss_addr: Address = env
             .storage()
             .instance()
-            .get(&DataKey::BlendizzardAddress)
-            .expect("Blendizzard address not set");
+            .get(&DataKey::OhlossAddress)
+            .expect("Ohloss address not set");
 
-        // Create Blendizzard client
-        let blendizzard = BlendizzardClient::new(&env, &blendizzard_addr);
+        // Create Ohloss client
+        let ohloss = OhlossClient::new(&env, &ohloss_addr);
 
-        // Call Blendizzard to start the session and lock FP
+        // Call Ohloss to start the session and lock FP
         // This requires THIS contract's authorization (env.current_contract_address())
-        blendizzard.start_game(
+        ohloss.start_game(
             &env.current_contract_address(),
             &session_id,
             &player1,
@@ -195,7 +195,7 @@ impl NumberGuessContract {
             .temporary()
             .extend_ttl(&game_key, GAME_TTL_LEDGERS, GAME_TTL_LEDGERS);
 
-        // Event emitted by Blendizzard contract (GameStarted)
+        // Event emitted by Ohloss contract (GameStarted)
 
         Ok(())
     }
@@ -251,7 +251,7 @@ impl NumberGuessContract {
         Ok(())
     }
 
-    /// Reveal the winner of the game and submit outcome to Blendizzard.
+    /// Reveal the winner of the game and submit outcome to Ohloss.
     /// Can only be called after both players have made their guesses.
     /// This generates the winning number, determines the winner, and ends the session.
     ///
@@ -334,21 +334,21 @@ impl NumberGuessContract {
         game.winner = Some(winner.clone());
         env.storage().temporary().set(&key, &game);
 
-        // Get Blendizzard address
-        let blendizzard_addr: Address = env
+        // Get Ohloss address
+        let ohloss_addr: Address = env
             .storage()
             .instance()
-            .get(&DataKey::BlendizzardAddress)
-            .expect("Blendizzard address not set");
+            .get(&DataKey::OhlossAddress)
+            .expect("Ohloss address not set");
 
-        // Create Blendizzard client
-        let blendizzard = BlendizzardClient::new(&env, &blendizzard_addr);
+        // Create Ohloss client
+        let ohloss = OhlossClient::new(&env, &ohloss_addr);
 
-        // Call Blendizzard to end the session
+        // Call Ohloss to end the session
         // This unlocks FP and updates faction standings
-        // Event emitted by Blendizzard contract (GameEnded)
+        // Event emitted by Ohloss contract (GameEnded)
         let player1_won = winner == game.player1; // true if player1 won, false if player2 won
-        blendizzard.end_game(&session_id, &player1_won);
+        ohloss.end_game(&session_id, &player1_won);
 
         Ok(winner)
     }
@@ -398,22 +398,22 @@ impl NumberGuessContract {
         env.storage().instance().set(&DataKey::Admin, &new_admin);
     }
 
-    /// Get the current Blendizzard contract address
+    /// Get the current Ohloss contract address
     ///
     /// # Returns
-    /// * `Address` - The Blendizzard contract address
-    pub fn get_blendizzard(env: Env) -> Address {
+    /// * `Address` - The Ohloss contract address
+    pub fn get_ohloss(env: Env) -> Address {
         env.storage()
             .instance()
-            .get(&DataKey::BlendizzardAddress)
-            .expect("Blendizzard address not set")
+            .get(&DataKey::OhlossAddress)
+            .expect("Ohloss address not set")
     }
 
-    /// Set a new Blendizzard contract address
+    /// Set a new Ohloss contract address
     ///
     /// # Arguments
-    /// * `new_blendizzard` - The new Blendizzard contract address
-    pub fn set_blendizzard(env: Env, new_blendizzard: Address) {
+    /// * `new_ohloss` - The new Ohloss contract address
+    pub fn set_ohloss(env: Env, new_ohloss: Address) {
         let admin: Address = env
             .storage()
             .instance()
@@ -423,7 +423,7 @@ impl NumberGuessContract {
 
         env.storage()
             .instance()
-            .set(&DataKey::BlendizzardAddress, &new_blendizzard);
+            .set(&DataKey::OhlossAddress, &new_ohloss);
     }
 
     /// Update the contract WASM hash (upgrade contract)

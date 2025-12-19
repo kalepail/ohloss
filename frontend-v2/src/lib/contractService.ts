@@ -1,7 +1,7 @@
 // Contract interaction services
 // Uses the generated bindings + smart-account-kit for signing
 
-import { Client as BlendizzardClient, type EpochInfo, type EpochPlayer, type Player, type Config } from 'blendizzard'
+import { Client as OhlossClient, type EpochInfo, type EpochPlayer, type Player, type Config } from 'ohloss'
 import { Client as FeeVaultClient } from 'fee-vault'
 import { rpc, Address, xdr, scValToNative } from '@stellar/stellar-sdk'
 import { getKit } from './smartAccount'
@@ -12,7 +12,7 @@ const { Server: RpcServer } = rpc
 const CONFIG = {
   rpcUrl: import.meta.env.VITE_RPC_URL || 'https://soroban-testnet.stellar.org',
   networkPassphrase: import.meta.env.VITE_NETWORK_PASSPHRASE || 'Test SDF Network ; September 2015',
-  blendizzardContract: import.meta.env.VITE_BLENDIZZARD_CONTRACT || '',
+  ohlossContract: import.meta.env.VITE_OHLOSS_CONTRACT || '',
   feeVaultContract: import.meta.env.VITE_FEE_VAULT_CONTRACT || '',
   usdcTokenContract: import.meta.env.VITE_USDC_TOKEN_CONTRACT || '',
   nativeTokenContract: import.meta.env.VITE_NATIVE_TOKEN_CONTRACT || '',
@@ -28,7 +28,7 @@ const DEFAULT_OPTIONS = {
 // Contract Clients
 // =============================================================================
 
-let blendizzardClient: BlendizzardClient | null = null
+let ohlossClient: OhlossClient | null = null
 let feeVaultClient: FeeVaultClient | null = null
 let rpcInstance: InstanceType<typeof RpcServer> | null = null
 
@@ -39,15 +39,15 @@ export function getRpc(): InstanceType<typeof RpcServer> {
   return rpcInstance
 }
 
-function getBlendizzardClient(): BlendizzardClient {
-  if (!blendizzardClient) {
-    blendizzardClient = new BlendizzardClient({
-      contractId: CONFIG.blendizzardContract,
+function getOhlossClient(): OhlossClient {
+  if (!ohlossClient) {
+    ohlossClient = new OhlossClient({
+      contractId: CONFIG.ohlossContract,
       networkPassphrase: CONFIG.networkPassphrase,
       rpcUrl: CONFIG.rpcUrl,
     })
   }
-  return blendizzardClient
+  return ohlossClient
 }
 
 function getFeeVaultClient(): FeeVaultClient {
@@ -67,9 +67,9 @@ function getFeeVaultClient(): FeeVaultClient {
  * which are not valid for the SDK's publicKey field (expects G-addresses).
  * The kit.signAndSubmit() will handle setting the correct source account.
  */
-function createSigningBlendizzardClient(): BlendizzardClient {
-  return new BlendizzardClient({
-    contractId: CONFIG.blendizzardContract,
+function createSigningOhlossClient(): OhlossClient {
+  return new OhlossClient({
+    contractId: CONFIG.ohlossContract,
     networkPassphrase: CONFIG.networkPassphrase,
     rpcUrl: CONFIG.rpcUrl,
   })
@@ -84,11 +84,11 @@ function createSigningFeeVaultClient(): FeeVaultClient {
 }
 
 // =============================================================================
-// Blendizzard Read Operations
+// Ohloss Read Operations
 // =============================================================================
 
 export async function getCurrentEpoch(): Promise<number> {
-  const client = getBlendizzardClient()
+  const client = getOhlossClient()
   const tx = await client.get_current_epoch()
   const result = await tx.simulate()
   return Number(result.result)
@@ -96,7 +96,7 @@ export async function getCurrentEpoch(): Promise<number> {
 
 export async function getEpochInfo(epoch: number): Promise<EpochInfo | null> {
   try {
-    const client = getBlendizzardClient()
+    const client = getOhlossClient()
     const tx = await client.get_epoch({ epoch })
     const result = await tx.simulate()
     return result.result.unwrap()
@@ -110,7 +110,7 @@ export async function getPlayerData(playerAddress: string): Promise<Player | nul
   const startTime = Date.now()
   console.log('[contractService] getPlayerData START:', playerAddress)
   try {
-    const client = getBlendizzardClient()
+    const client = getOhlossClient()
     console.log('[contractService] getPlayerData - client created')
     const tx = await client.get_player({ player: playerAddress })
     console.log('[contractService] getPlayerData - tx created, simulating...')
@@ -128,7 +128,7 @@ export async function getEpochPlayerData(
   playerAddress: string
 ): Promise<EpochPlayer | null> {
   try {
-    const client = getBlendizzardClient()
+    const client = getOhlossClient()
     const tx = await client.get_epoch_player({ epoch, player: playerAddress })
     const result = await tx.simulate()
     return result.result.unwrap()
@@ -140,7 +140,7 @@ export async function getEpochPlayerData(
 
 export async function getConfig(): Promise<Config | null> {
   try {
-    const client = getBlendizzardClient()
+    const client = getOhlossClient()
     const tx = await client.get_config()
     const result = await tx.simulate()
     return result.result
@@ -152,7 +152,7 @@ export async function getConfig(): Promise<Config | null> {
 
 export async function isPaused(): Promise<boolean> {
   try {
-    const client = getBlendizzardClient()
+    const client = getOhlossClient()
     const tx = await client.is_paused()
     const result = await tx.simulate()
     return result.result
@@ -163,7 +163,7 @@ export async function isPaused(): Promise<boolean> {
 }
 
 // =============================================================================
-// Blendizzard Write Operations
+// Ohloss Write Operations
 // =============================================================================
 
 /**
@@ -181,7 +181,7 @@ export async function selectFaction(
       return { success: false, error: 'Wallet not connected' }
     }
 
-    const client = createSigningBlendizzardClient()
+    const client = createSigningOhlossClient()
     const tx = await client.select_faction({ player: playerAddress, faction }, DEFAULT_OPTIONS)
 
     // Use the kit's signAndSubmit which handles the full flow
@@ -212,7 +212,7 @@ export async function cycleEpoch(): Promise<{ success: boolean; newEpoch?: numbe
       return { success: false, error: 'Wallet not connected' }
     }
 
-    const client = createSigningBlendizzardClient()
+    const client = createSigningOhlossClient()
     const tx = await client.cycle_epoch(DEFAULT_OPTIONS)
 
     const result = await kit.signAndSubmit(tx)
@@ -247,7 +247,7 @@ export async function claimEpochReward(
       return { success: false, error: 'Wallet not connected' }
     }
 
-    const client = createSigningBlendizzardClient()
+    const client = createSigningOhlossClient()
     const tx = await client.claim_epoch_reward({ player: playerAddress, epoch }, DEFAULT_OPTIONS)
 
     const result = await kit.signAndSubmit(tx)
@@ -279,7 +279,7 @@ export async function claimDevReward(
       return { success: false, error: 'Wallet not connected' }
     }
 
-    const client = createSigningBlendizzardClient()
+    const client = createSigningOhlossClient()
     const tx = await client.claim_dev_reward({ developer, epoch }, DEFAULT_OPTIONS)
 
     const result = await kit.signAndSubmit(tx)
@@ -305,8 +305,8 @@ export async function canClaimEpochReward(
   epoch: number
 ): Promise<{ canClaim: boolean; estimatedAmount?: bigint }> {
   try {
-    const client = new BlendizzardClient({
-      contractId: CONFIG.blendizzardContract,
+    const client = new OhlossClient({
+      contractId: CONFIG.ohlossContract,
       networkPassphrase: CONFIG.networkPassphrase,
       rpcUrl: CONFIG.rpcUrl,
       publicKey: playerAddress,
@@ -682,7 +682,7 @@ export async function fetchPlayerRewards(
   currentEpoch: number,
   epochsToFetch = 100
 ): Promise<ClaimableReward[]> {
-  const contractId = CONFIG.blendizzardContract
+  const contractId = CONFIG.ohlossContract
   const startEpoch = Math.max(0, currentEpoch - epochsToFetch)
   const numEpochs = currentEpoch - startEpoch
 
@@ -770,7 +770,7 @@ export async function fetchDevRewards(
 ): Promise<DevClaimableReward[]> {
   if (!developerAddress) return []
 
-  const contractId = CONFIG.blendizzardContract
+  const contractId = CONFIG.ohlossContract
   const startEpoch = Math.max(0, currentEpoch - epochsToFetch)
   const numEpochs = currentEpoch - startEpoch
 
@@ -864,7 +864,7 @@ export interface GameStats {
  */
 export async function getGameInfo(gameId: string): Promise<GameInfo | null> {
   const rpcClient = getRpc()
-  const contractId = CONFIG.blendizzardContract
+  const contractId = CONFIG.ohlossContract
 
   try {
     const key = buildGameKey(gameId)
@@ -904,7 +904,7 @@ export async function getGameStats(gameId: string, epoch: number): Promise<GameS
     }
 
     const rpcClient = getRpc()
-    const contractId = CONFIG.blendizzardContract
+    const contractId = CONFIG.ohlossContract
 
     // Now query EpochGame using the developer address
     const key = buildEpochGameKey(epoch, gameInfo.developer)
