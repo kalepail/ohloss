@@ -436,7 +436,7 @@ export function AccountPage() {
   }
 
   return (
-    <div className="min-h-screen relative" style={{ zIndex: 1 }}>
+    <div className="min-h-screen relative flex flex-col" style={{ zIndex: 1 }}>
       <AsciiBackground />
 
       {/* Header */}
@@ -487,7 +487,7 @@ export function AccountPage() {
       </header>
 
       {/* Main Content */}
-      <main className="min-h-screen px-4 pt-20 pb-8">
+      <main className="flex-1 px-4 pt-20 pb-8">
         <div className="max-w-4xl mx-auto space-y-6">
 
           {/* Action Messages */}
@@ -897,14 +897,24 @@ export function AccountPage() {
             </div>
           )}
 
-          {/* Footer */}
-          <div className="text-center py-4">
-            <p className="text-terminal-dim text-xs">
-              {'// '} OHLOSS v0.0.1 {' //'}
-            </p>
-          </div>
         </div>
       </main>
+
+      {/* Footer */}
+      <footer className="border-t border-terminal-dim py-6 px-4 bg-terminal-bg relative" style={{ zIndex: 50 }}>
+        <div className="max-w-4xl mx-auto flex items-center justify-center gap-4 text-xs">
+          <a
+            href="https://github.com/kalepail/blendizzard"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-terminal-dim hover:text-terminal-fg transition-colors"
+          >
+            GITHUB
+          </a>
+          <span className="text-terminal-dim">|</span>
+          <span className="text-terminal-dim">{'// '} OHLOSS v0.0.1 {' //'}</span>
+        </div>
+      </footer>
 
       {/* Deposit Modal */}
       {showDepositModal && (

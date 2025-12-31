@@ -6,6 +6,7 @@ import LobbyPage from '@/pages/LobbyPage'
 import GamePage from '@/pages/GamePage'
 import PendingGamesPage from '@/pages/PendingGamesPage'
 import Header from '@/components/Header'
+import Footer from '@/components/Footer'
 
 // Wrapper that stores the intended URL before redirecting to connect
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -33,9 +34,9 @@ function App() {
   const { isConnected } = useWalletStore()
 
   return (
-    <div className="min-h-screen bg-game-bg">
+    <div className="min-h-screen bg-game-bg flex flex-col">
       <Header />
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-8 flex-1">
         <Routes>
           <Route
             path="/"
@@ -68,6 +69,7 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
+      <Footer />
     </div>
   )
 }

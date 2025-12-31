@@ -731,20 +731,14 @@ export function HomePage() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-terminal-dim py-8 px-4">
+      <footer className="border-t border-terminal-dim py-8 px-4 bg-terminal-bg relative" style={{ zIndex: 50 }}>
         <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="text-terminal-dim text-xs">
             {'// '} OHLOSS v0.0.1 {' //'}
           </div>
           <div className="flex items-center gap-6 text-xs">
-            <a href="https://github.com" className="text-terminal-dim hover:text-terminal-fg transition-colors">
+            <a href="https://github.com/kalepail/blendizzard" target="_blank" rel="noopener noreferrer" className="text-terminal-dim hover:text-terminal-fg transition-colors">
               GITHUB
-            </a>
-            <a href="https://discord.com" className="text-terminal-dim hover:text-terminal-fg transition-colors">
-              DISCORD
-            </a>
-            <a href="https://twitter.com" className="text-terminal-dim hover:text-terminal-fg transition-colors">
-              TWITTER
             </a>
           </div>
           <div className="text-terminal-dim text-xs">
