@@ -125,6 +125,36 @@ cd contracts/my-game
 cargo test
 ```
 
+#### Native Rust Tests (Mock Ohloss)
+Game contracts are expected to use a minimal in-memory Mock Ohloss for unit tests.
+This keeps tests fast and deterministic while preserving the real integration interface.
+
+Examples:
+- `contracts/number-guess/src/test.rs`
+- `contracts/twenty-one/src/test.rs`
+
+Key pattern:
+```rust
+let env = Env::default();
+env.mock_all_auths();
+
+// Deploy mock Ohloss and game contract
+let ohloss_addr = env.register(MockOhloss, ());
+let admin = Address::generate(&env);
+let game_id = env.register(MyGameContract, (&admin, &ohloss_addr));
+let client = MyGameContractClient::new(&env, &game_id);
+
+// Optional: whitelist game in mock
+let ohloss = MockOhlossClient::new(&env, &ohloss_addr);
+ohloss.add_game(&game_id);
+```
+
+Run:
+```bash
+cd contracts/my-game
+cargo test
+```
+
 ### Step 6: Build, Deploy, Generate Bindings (Automatic)
 Once listed in the workspace, these scripts automatically build/deploy and generate bindings:
 ```bash
