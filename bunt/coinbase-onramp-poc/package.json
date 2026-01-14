@@ -1,0 +1,19 @@
+{
+  "name": "coinbase-onramp-poc",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --hot src/server.ts",
+    "start": "bun run src/server.ts"
+  },
+  "dependencies": {
+    "@coinbase/cdp-sdk": "^1.40.1",
+    "hono": "^4.6.0",
+    "jose": "^6.0.11",
+    "jsonwebtoken": "^9.0.3"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/jsonwebtoken": "^9.0.10"
+  }
+}
