@@ -306,6 +306,13 @@ test("deposit increases balance", async () => {
 });
 ```
 
+## Game Developer Quick Start
+
+If you're building a game that integrates with OHLOSS, use the **OHLOSS Game Studio** starter kit.
+It includes a mock OHLOSS contract, example games, deployment scripts for testnet, and a frontend scaffold.
+
+See: [game-studio/README.md](game-studio/README.md)
+
 ## Documentation
 
 - **[PLAN.md](docs/PLAN.md)** - Detailed technical specification
