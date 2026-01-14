@@ -193,6 +193,9 @@ app.get('/', (c) => c.html(`<!DOCTYPE html>
   </div>
 
   <script>
+    function escapeHtml(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
     async function buy() {
       const btn = document.getElementById('buyBtn');
       const error = document.getElementById('error');
@@ -250,14 +253,21 @@ app.get('/', (c) => c.html(`<!DOCTYPE html>
         if (txs.length === 0) {
           txList.innerHTML = '<p class="text-gray-400">No transactions found</p>';
         } else {
-          txList.innerHTML = txs.map(tx => {
+          txList.innerHTML = txs.map((tx, i) => {
             const status = tx.status?.replace('ONRAMP_TRANSACTION_STATUS_', '') || 'UNKNOWN';
             const color = status === 'SUCCESS' ? 'text-green-400' : status === 'IN_PROGRESS' ? 'text-yellow-400' : 'text-gray-400';
             const amount = tx.purchase_amount?.value || tx.purchaseAmount?.value || '?';
             const currency = tx.purchase_currency || tx.purchaseCurrency || '';
-            return '<div class="bg-gray-700 rounded p-3 flex justify-between">' +
-              '<span>' + amount + ' ' + currency + '</span>' +
-              '<span class="' + color + '">' + status + '</span>' +
+            const jsonStr = JSON.stringify(tx, null, 2);
+            return '<div class="bg-gray-700 rounded overflow-hidden">' +
+              '<div class="p-3 flex justify-between items-center cursor-pointer" onclick="this.nextElementSibling.classList.toggle(\\'hidden\\')">' +
+                '<span>' + amount + ' ' + currency + '</span>' +
+                '<div class="flex items-center gap-2">' +
+                  '<span class="' + color + '">' + status + '</span>' +
+                  '<span class="text-gray-500 text-xs">▼</span>' +
+                '</div>' +
+              '</div>' +
+              '<pre class="hidden bg-gray-800 p-3 text-xs overflow-x-auto border-t border-gray-600 text-gray-300">' + escapeHtml(jsonStr) + '</pre>' +
             '</div>';
           }).join('');
         }
