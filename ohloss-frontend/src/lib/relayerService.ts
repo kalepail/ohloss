@@ -136,14 +136,14 @@ export async function send(func: string, auth: string[]): Promise<RelayerRespons
       }
     }
 
-    // For func+auth, we need to send JSON to the proxy
+    // Send as form data to match what the proxy expects
+    // auth array is JSON-stringified since URLSearchParams only handles strings
     const response = await fetch(RELAYER_URL, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
         'X-Turnstile-Response': token,
       },
-      body: JSON.stringify({ func, auth }),
+      body: new URLSearchParams({ func, auth: JSON.stringify(auth) }),
     })
 
     if (!response.ok) {
