@@ -669,7 +669,7 @@ export const useOhlossStore = create<OhlossState>()(
 // Selectors
 // =============================================================================
 
-export const FACTION_SYMBOLS = ['~', '/', '#'] as const
+export const FACTION_SYMBOLS = ['𓆛', '𓆣', '𓅣'] as const
 export { FACTION_NAMES }
 
 export function getFactionName(factionId: number): string {
