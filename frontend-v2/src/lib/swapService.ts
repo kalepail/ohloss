@@ -12,6 +12,7 @@ import {
   rpc,
 } from '@stellar/stellar-sdk'
 import { getKit } from './smartAccount'
+import { sendXdr as relayerSendXdr, isConfigured as relayerIsConfigured } from './relayerService'
 
 const { Server: RpcServer, Api: RpcApi, assembleTransaction } = rpc
 
@@ -346,8 +347,8 @@ export async function executeSwap(
     // Step 4: Submit via Relayer (if configured) or direct RPC
     let submitResult: { success: boolean; hash?: string; error?: string }
 
-    if (kit.relayer) {
-      submitResult = await kit.relayer.sendXdr(signedXdr)
+    if (relayerIsConfigured()) {
+      submitResult = await relayerSendXdr(signedXdr)
     } else {
       // Direct RPC submission - note: this won't work for smart wallets without fee sponsorship
       const server = new RpcServer(RPC_URL)

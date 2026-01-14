@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@openzeppelin/relayer-plugin-channels": "^0.5.0",
     "@stellar/stellar-sdk": "^14.4.3",
     "@tailwindcss/postcss": "^4.1.18",
     "ohloss": "file:../bunt/bindings/ohloss",

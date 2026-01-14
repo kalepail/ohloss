@@ -20,9 +20,9 @@ export const BLND_TOKEN = import.meta.env.VITE_BLND_TOKEN;
 // Other
 export const SOROSWAP_ROUTER = import.meta.env.VITE_SOROSWAP_ROUTER;
 
-// Launchtube configuration
-export const LAUNCHTUBE_URL = import.meta.env.VITE_LAUNCHTUBE_URL || 'http://launchtube.xyz/v2';
-export const LAUNCHTUBE_JWT = import.meta.env.VITE_LAUNCHTUBE_JWT;
+// Relayer configuration
+export const RELAYER_URL = import.meta.env.VITE_RELAYER_URL || '';
+export const RELAYER_API_KEY = import.meta.env.VITE_RELAYER_API_KEY || '';
 
 // Cloudflare Turnstile
 export const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA';

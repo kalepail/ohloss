@@ -1,7 +1,7 @@
 import { Client as FeeVaultClient } from 'fee-vault';
 import { VAULT_CONTRACT, NETWORK_PASSPHRASE, RPC_URL, DEFAULT_METHOD_OPTIONS, DEFAULT_AUTH_TTL_MINUTES } from '@/utils/constants';
 import { contract } from '@stellar/stellar-sdk';
-import { signAndSendViaLaunchtube } from '@/utils/transactionHelper';
+import { signAndSendViaRelayer } from '@/utils/transactionHelper';
 import { calculateValidUntilLedger } from '@/utils/ledgerUtils';
 
 type ClientOptions = contract.ClientOptions;
@@ -91,7 +91,7 @@ export class FeeVaultService {
       ? await calculateValidUntilLedger(RPC_URL, authTtlMinutes)
       : await calculateValidUntilLedger(RPC_URL, DEFAULT_AUTH_TTL_MINUTES);
 
-    const { result } = await signAndSendViaLaunchtube(tx, DEFAULT_METHOD_OPTIONS.timeoutInSeconds, validUntilLedgerSeq);
+    const { result } = await signAndSendViaRelayer(tx, DEFAULT_METHOD_OPTIONS.timeoutInSeconds, validUntilLedgerSeq);
     return result;
   }
 
@@ -112,7 +112,7 @@ export class FeeVaultService {
       ? await calculateValidUntilLedger(RPC_URL, authTtlMinutes)
       : await calculateValidUntilLedger(RPC_URL, DEFAULT_AUTH_TTL_MINUTES);
 
-    const { result } = await signAndSendViaLaunchtube(tx, DEFAULT_METHOD_OPTIONS.timeoutInSeconds, validUntilLedgerSeq);
+    const { result } = await signAndSendViaRelayer(tx, DEFAULT_METHOD_OPTIONS.timeoutInSeconds, validUntilLedgerSeq);
     return result;
   }
 }

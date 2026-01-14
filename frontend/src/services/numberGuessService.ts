@@ -1,7 +1,7 @@
 import { Client as NumberGuessClient, type Game } from 'number-guess';
 import { GAME_CONTRACT, NETWORK_PASSPHRASE, RPC_URL, DEFAULT_METHOD_OPTIONS, DEFAULT_AUTH_TTL_MINUTES, MULTI_SIG_AUTH_TTL_MINUTES } from '@/utils/constants';
 import { contract, TransactionBuilder, StrKey, xdr, Address, authorizeEntry } from '@stellar/stellar-sdk';
-import { signAndSendViaLaunchtube } from '@/utils/transactionHelper';
+import { signAndSendViaRelayer } from '@/utils/transactionHelper';
 import { calculateValidUntilLedger } from '@/utils/ledgerUtils';
 import { injectSignedAuthEntry } from '@/utils/authEntryUtils';
 
@@ -89,7 +89,7 @@ export class NumberGuessService {
       ? await calculateValidUntilLedger(RPC_URL, authTtlMinutes)
       : await calculateValidUntilLedger(RPC_URL, DEFAULT_AUTH_TTL_MINUTES);
 
-    const { result } = await signAndSendViaLaunchtube(tx, DEFAULT_METHOD_OPTIONS.timeoutInSeconds, validUntilLedgerSeq);
+    const { result } = await signAndSendViaRelayer(tx, DEFAULT_METHOD_OPTIONS.timeoutInSeconds, validUntilLedgerSeq);
     return result;
   }
 
@@ -445,7 +445,7 @@ export class NumberGuessService {
       : await calculateValidUntilLedger(RPC_URL, DEFAULT_AUTH_TTL_MINUTES);
 
     // Sign the transaction envelope and submit
-    const { result } = await signAndSendViaLaunchtube(tx, DEFAULT_METHOD_OPTIONS.timeoutInSeconds, validUntilLedgerSeq);
+    const { result } = await signAndSendViaRelayer(tx, DEFAULT_METHOD_OPTIONS.timeoutInSeconds, validUntilLedgerSeq);
     return result;
   }
 
@@ -579,7 +579,7 @@ export class NumberGuessService {
       : await calculateValidUntilLedger(RPC_URL, DEFAULT_AUTH_TTL_MINUTES);
 
     try {
-      const sentTx = await signAndSendViaLaunchtube(tx, DEFAULT_METHOD_OPTIONS.timeoutInSeconds, validUntilLedgerSeq);
+      const sentTx = await signAndSendViaRelayer(tx, DEFAULT_METHOD_OPTIONS.timeoutInSeconds, validUntilLedgerSeq);
 
       if (sentTx.getTransactionResponse?.status === 'FAILED') {
         const errorMessage = this.extractErrorFromDiagnostics(sentTx.getTransactionResponse);
@@ -614,7 +614,7 @@ export class NumberGuessService {
       : await calculateValidUntilLedger(RPC_URL, DEFAULT_AUTH_TTL_MINUTES);
 
     try {
-      const sentTx = await signAndSendViaLaunchtube(tx, DEFAULT_METHOD_OPTIONS.timeoutInSeconds, validUntilLedgerSeq);
+      const sentTx = await signAndSendViaRelayer(tx, DEFAULT_METHOD_OPTIONS.timeoutInSeconds, validUntilLedgerSeq);
 
       // Check transaction status before accessing result
       if (sentTx.getTransactionResponse?.status === 'FAILED') {

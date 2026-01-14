@@ -21,6 +21,7 @@ import {
   createWallet,
   isConfigured,
 } from '@/lib/smartAccount'
+import { sendXdr as relayerSendXdr, isConfigured as relayerIsConfigured } from '@/lib/relayerService'
 import {
   type PendingCredential,
   loadPendingCredentialsSorted,
@@ -902,9 +903,9 @@ export function SignerPage() {
         // Submit if requested
         let txHash: string | undefined
 
-        if (pendingRequest.submit && kit.relayer) {
+        if (pendingRequest.submit && relayerIsConfigured()) {
           setStatusMessage('Submitting transaction...')
-          const submitResult = await kit.relayer.sendXdr(signedXdr)
+          const submitResult = await relayerSendXdr(signedXdr)
           if (!submitResult.success) {
             throw new Error(submitResult.error || 'Transaction submission failed')
           }

@@ -37,7 +37,8 @@ export function getKit(): SmartAccountKit {
       rpName: 'Ohloss',
       // Indexer for reverse lookups (credential -> contracts)
       ...(CONFIG.indexerUrl && { indexerUrl: CONFIG.indexerUrl }),
-      // Relayer for fee-sponsored transactions (optional)
+      // Note: Relayer for kit operations (signAndSubmit, transfer, etc.)
+      // Uses API key auth. For Turnstile-based auth, use relayerService.ts directly.
       ...(CONFIG.relayerUrl && { relayerUrl: CONFIG.relayerUrl }),
     })
   }
