@@ -169,10 +169,10 @@ perplexity: reason("What are the best practices for Soroban storage optimization
 
 **Use for:**
 - Workers deployment (api-worker)
-- Pages deployment (frontend-v2)
+- Pages deployment (ohloss-frontend)
 - D1, R2, KV documentation
 
-**Relevant for this project** - frontend-v2 and api-worker deploy to Cloudflare.
+**Relevant for this project** - ohloss-frontend and api-worker deploy to Cloudflare.
 
 ### WebSearch / WebFetch
 **Purpose:** Direct web search and page fetching

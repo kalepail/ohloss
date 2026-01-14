@@ -12,7 +12,7 @@
  */
 
 import { Keypair } from '@stellar/stellar-sdk';
-import { numberGuessService } from '../frontend/src/services/numberGuessService';
+import { numberGuessService } from '../game-frontend/src/services/numberGuessService';
 
 const RPC_URL = 'https://soroban-testnet.stellar.org';
 

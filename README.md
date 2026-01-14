@@ -58,8 +58,7 @@ ohloss/
 │   │   └── Cargo.toml
 │   └── number-guess/             # Example game contract
 ├── bunt/                         # TypeScript bindings and E2E tests (Bun runtime)
-├── frontend/                     # Legacy frontend (Freighter wallet) - deprecated
-├── frontend-v2/                  # Main frontend (Passkey smart wallets)
+├── ohloss-frontend/              # Main frontend (Passkey smart wallets)
 ├── game-frontend/                # Number Guess game UI
 ├── api-worker/                   # Cloudflare Worker API proxy
 ├── fp_simulations/               # Python multiplier simulations

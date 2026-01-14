@@ -404,7 +404,7 @@ export function SignerPage() {
   }, [appInfo?.origin, sendToOpener])
 
   // Load pending credentials when showing connect UI.
-  // This mirrors the frontend-v2 home page behavior for "orphaned passkeys".
+  // This mirrors the ohloss-frontend home page behavior for "orphaned passkeys".
   useEffect(() => {
     if (mode !== 'connecting') return
     if (!isConfigured()) return

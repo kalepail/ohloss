@@ -54,9 +54,9 @@ export async function sendXdr(xdr: string): Promise<RelayerResponse> {
       const result = await channelsClient.submitTransaction({ xdr })
       return {
         success: true,
-        hash: result.hash,
-        transactionId: result.transactionId,
-        status: result.status,
+        hash: result.hash ?? undefined,
+        transactionId: result.transactionId ?? undefined,
+        status: result.status ?? undefined,
       }
     }
 
@@ -121,9 +121,9 @@ export async function send(func: string, auth: string[]): Promise<RelayerRespons
       const result = await channelsClient.submitSorobanTransaction({ func, auth })
       return {
         success: true,
-        hash: result.hash,
-        transactionId: result.transactionId,
-        status: result.status,
+        hash: result.hash ?? undefined,
+        transactionId: result.transactionId ?? undefined,
+        status: result.status ?? undefined,
       }
     }
 

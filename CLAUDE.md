@@ -424,7 +424,7 @@ context7: get-library-docs("/stellar/js-stellar-sdk", mode="info")
 - `reason("What are the best practices for Soroban storage optimization?")`
 
 #### cloudflare - Cloudflare documentation
-**Use when:** Deploying frontend-v2 or api-worker to Cloudflare
+**Use when:** Deploying ohloss-frontend or api-worker to Cloudflare
 
 ```bash
 cloudflare: search_cloudflare_documentation("workers vite deployment")

@@ -63,4 +63,4 @@ curl -X POST http://localhost:8787/api/swap/quote \
 
 ## Related
 
-- `frontend-v2/` - Main app that calls this API
+- `ohloss-frontend/` - Main app that calls this API

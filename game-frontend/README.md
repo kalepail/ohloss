@@ -1,11 +1,11 @@
 # Number Guess Game Frontend
 
-Standalone game UI for the Number Guess game contract. Communicates with the Ohloss wallet (frontend-v2) via popup window for transaction signing.
+Standalone game UI for the Number Guess game contract. Communicates with the Ohloss wallet (ohloss-frontend) via popup window for transaction signing.
 
 ## Architecture
 
 - Game runs on port 5174
-- Opens popup to frontend-v2 (port 5173) for wallet connection and signing
+- Opens popup to ohloss-frontend (port 5173) for wallet connection and signing
 - Uses postMessage API for cross-window communication
 - Passkey wallets only (no Freighter)
 
@@ -19,7 +19,7 @@ bun install
 cp .env.example .env
 # Fill in contract addresses
 
-# Start dev server (requires frontend-v2 running on :5173)
+# Start dev server (requires ohloss-frontend running on :5173)
 bun run dev
 ```
 
@@ -38,7 +38,7 @@ bun run build    # Production build
 | `VITE_RPC_URL` | Stellar RPC endpoint |
 | `VITE_NUMBER_GUESS_CONTRACT` | Number Guess contract address |
 | `VITE_OHLOSS_CONTRACT` | Ohloss contract address |
-| `VITE_OHLOSS_URL` | frontend-v2 URL for wallet popup |
+| `VITE_OHLOSS_URL` | ohloss-frontend URL for wallet popup |
 
 ## Game Flow
 
@@ -64,5 +64,5 @@ game-frontend/
 
 ## Related
 
-- `frontend-v2/` - Main wallet app (handles signing popups)
+- `ohloss-frontend/` - Main wallet app (handles signing popups)
 - `contracts/number-guess/` - Game contract

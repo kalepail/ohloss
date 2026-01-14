@@ -1,4 +1,4 @@
-# Ohloss Frontend V2
+# Ohloss Frontend
 
 The main Ohloss web application using passkey-based smart wallets.
 
@@ -49,7 +49,7 @@ Copy `.env.example` to `.env`. Key variables:
 ## Project Structure
 
 ```
-frontend-v2/
+ohloss-frontend/
 ├── src/
 │   ├── components/      # React components
 │   ├── stores/          # Zustand stores
@@ -70,6 +70,5 @@ frontend-v2/
 
 ## Related
 
-- `frontend/` - Legacy frontend (Freighter wallet)
 - `game-frontend/` - Number Guess game UI
 - `api-worker/` - Backend API proxy
