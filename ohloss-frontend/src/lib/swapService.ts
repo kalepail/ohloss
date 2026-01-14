@@ -344,27 +344,15 @@ export async function executeSwap(
 
     const signedXdr = signedEnvelope.toXDR('base64')
 
-    // Step 4: Submit via Relayer (if configured) or direct RPC
-    let submitResult: { success: boolean; hash?: string; error?: string }
-
-    if (relayerIsConfigured()) {
-      submitResult = await relayerSendXdr(signedXdr)
-    } else {
-      // Direct RPC submission - note: this won't work for smart wallets without fee sponsorship
-      const server = new RpcServer(RPC_URL)
-      try {
-        const signedTx = TransactionBuilder.fromXDR(signedXdr, NETWORK_PASSPHRASE)
-        const response = await server.sendTransaction(signedTx)
-        // sendTransaction returns PENDING on success, ERROR/DUPLICATE/TRY_AGAIN_LATER on failure
-        if (response.status === 'PENDING') {
-          submitResult = { success: true, hash: response.hash }
-        } else {
-          submitResult = { success: false, error: `Transaction failed: ${response.status}` }
-        }
-      } catch (err) {
-        submitResult = { success: false, error: err instanceof Error ? err.message : 'RPC submission failed' }
+    // Step 4: Submit via Relayer (required for fee sponsorship)
+    if (!relayerIsConfigured()) {
+      return {
+        success: false,
+        error: 'Relayer not configured. Smart wallet transactions require fee sponsorship.',
       }
     }
+
+    const submitResult = await relayerSendXdr(signedXdr)
 
     if (!submitResult.success) {
       return { success: false, error: submitResult.error || 'Transaction failed' }

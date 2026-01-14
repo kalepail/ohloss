@@ -4,7 +4,7 @@
 import { Client as OhlossClient, type EpochInfo, type EpochPlayer, type Player, type Config } from 'ohloss'
 import { Client as FeeVaultClient } from 'fee-vault'
 import { rpc, Address, xdr, scValToNative } from '@stellar/stellar-sdk'
-import { getKit } from './smartAccount'
+import { getKit, signAndSubmitWithTurnstile } from './smartAccount'
 
 const { Server: RpcServer } = rpc
 
@@ -168,7 +168,7 @@ export async function isPaused(): Promise<boolean> {
 
 /**
  * Select a faction for the player
- * Uses smart-account-kit for signing
+ * Uses smart-account-kit for signing, relayerService for submission (Turnstile support)
  */
 export async function selectFaction(
   playerAddress: string,
@@ -184,8 +184,8 @@ export async function selectFaction(
     const client = createSigningOhlossClient()
     const tx = await client.select_faction({ player: playerAddress, faction }, DEFAULT_OPTIONS)
 
-    // Use the kit's signAndSubmit which handles the full flow
-    const result = await kit.signAndSubmit(tx)
+    // Use signAndSubmitWithTurnstile which includes Turnstile header for production
+    const result = await signAndSubmitWithTurnstile(tx)
 
     return {
       success: result.success,
@@ -215,7 +215,8 @@ export async function cycleEpoch(): Promise<{ success: boolean; newEpoch?: numbe
     const client = createSigningOhlossClient()
     const tx = await client.cycle_epoch(DEFAULT_OPTIONS)
 
-    const result = await kit.signAndSubmit(tx)
+    // Use signAndSubmitWithTurnstile which includes Turnstile header for production
+    const result = await signAndSubmitWithTurnstile(tx)
 
     if (result.success) {
       // Fetch the new epoch number
@@ -250,7 +251,8 @@ export async function claimEpochReward(
     const client = createSigningOhlossClient()
     const tx = await client.claim_epoch_reward({ player: playerAddress, epoch }, DEFAULT_OPTIONS)
 
-    const result = await kit.signAndSubmit(tx)
+    // Use signAndSubmitWithTurnstile which includes Turnstile header for production
+    const result = await signAndSubmitWithTurnstile(tx)
 
     return {
       success: result.success,
@@ -282,7 +284,8 @@ export async function claimDevReward(
     const client = createSigningOhlossClient()
     const tx = await client.claim_dev_reward({ developer, epoch }, DEFAULT_OPTIONS)
 
-    const result = await kit.signAndSubmit(tx)
+    // Use signAndSubmitWithTurnstile which includes Turnstile header for production
+    const result = await signAndSubmitWithTurnstile(tx)
 
     return {
       success: result.success,
@@ -396,7 +399,8 @@ export async function depositToVault(
     const client = createSigningFeeVaultClient()
     const tx = await client.deposit({ user: userAddress, amount }, DEFAULT_OPTIONS)
 
-    const result = await kit.signAndSubmit(tx)
+    // Use signAndSubmitWithTurnstile which includes Turnstile header for production
+    const result = await signAndSubmitWithTurnstile(tx)
 
     return {
       success: result.success,
@@ -428,7 +432,8 @@ export async function withdrawFromVault(
     const client = createSigningFeeVaultClient()
     const tx = await client.withdraw({ user: userAddress, amount }, DEFAULT_OPTIONS)
 
-    const result = await kit.signAndSubmit(tx)
+    // Use signAndSubmitWithTurnstile which includes Turnstile header for production
+    const result = await signAndSubmitWithTurnstile(tx)
 
     return {
       success: result.success,

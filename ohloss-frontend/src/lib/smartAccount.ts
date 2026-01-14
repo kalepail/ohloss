@@ -2,6 +2,8 @@
 // Uses OpenZeppelin's smart-account-kit for WebAuthn passkey-based Stellar smart wallets
 
 import { SmartAccountKit, IndexedDBStorage } from 'smart-account-kit'
+import { sendXdr as relayerSendXdr, send as relayerSend } from './relayerService'
+import type { contract } from '@stellar/stellar-sdk'
 
 // Configuration from environment
 const CONFIG = {
@@ -56,6 +58,9 @@ export function isConfigured(): boolean {
 /**
  * Create a new smart wallet with a passkey
  * This registers a WebAuthn credential and deploys a smart account contract
+ *
+ * Note: We use autoSubmit: false and manually submit via relayerService
+ * to include the Turnstile header for production bot protection.
  */
 export async function createWallet(userName?: string): Promise<{
   contractId: string
@@ -63,12 +68,16 @@ export async function createWallet(userName?: string): Promise<{
 }> {
   const kit = getKit()
 
+  // Don't use autoSubmit - we need to submit via relayerService for Turnstile support
   const result = await kit.createWallet('Ohloss', userName || 'Player', {
-    autoSubmit: true,
+    autoSubmit: false,
   })
 
-  if (!result.submitResult?.success) {
-    throw new Error(result.submitResult?.error || 'Wallet deployment failed')
+  // Manually submit the signed transaction via relayerService (includes Turnstile header)
+  // relayerService handles both dev (API key) and prod (Turnstile) modes
+  const submitResult = await relayerSendXdr(result.signedTransaction)
+  if (!submitResult.success) {
+    throw new Error(submitResult.error || 'Wallet deployment failed')
   }
 
   return {
@@ -206,6 +215,9 @@ export async function getPendingCredentials() {
 
 /**
  * Deploy a pending credential
+ *
+ * Note: We use autoSubmit: false and manually submit via relayerService
+ * to include the Turnstile header for production bot protection.
  */
 export async function deployPendingCredential(credentialId: string): Promise<{
   contractId: string
@@ -214,14 +226,18 @@ export async function deployPendingCredential(credentialId: string): Promise<{
 }> {
   const kit = getKit()
 
+  // Don't use autoSubmit - we need to submit via relayerService for Turnstile support
   const result = await kit.credentials.deploy(credentialId, {
-    autoSubmit: true,
+    autoSubmit: false,
   })
 
+  // Manually submit the signed transaction via relayerService (includes Turnstile header)
+  // relayerService handles both dev (API key) and prod (Turnstile) modes
+  const submitResult = await relayerSendXdr(result.signedTransaction)
   return {
     contractId: result.contractId,
-    success: result.submitResult?.success || false,
-    error: result.submitResult?.error,
+    success: submitResult.success,
+    error: submitResult.error,
   }
 }
 
@@ -264,6 +280,73 @@ export function getContractId(): string | null {
 export const config = {
   ...CONFIG,
   isConfigured: isConfigured(),
+}
+
+/**
+ * Sign and submit a transaction using the kit for signing but relayerService for submission.
+ * This bypasses the kit's internal relayer and uses our relayerService which includes
+ * the Turnstile header for production bot protection.
+ *
+ * Use this instead of kit.signAndSubmit() for all contract operations.
+ */
+export async function signAndSubmitWithTurnstile<T>(
+  tx: contract.AssembledTransaction<T>
+): Promise<{ success: boolean; hash?: string; error?: string }> {
+  const kit = getKit()
+
+  if (!kit.isConnected) {
+    return { success: false, error: 'Wallet not connected' }
+  }
+
+  try {
+    // Get the built transaction and simulation data
+    const builtTx = tx.built
+    if (!builtTx) {
+      return { success: false, error: 'Transaction has no built transaction' }
+    }
+
+    const operations = builtTx.operations
+    if (operations.length !== 1) {
+      return { success: false, error: 'Expected exactly one operation' }
+    }
+
+    const operation = operations[0]
+    if (operation.type !== 'invokeHostFunction') {
+      return { success: false, error: 'Expected invokeHostFunction operation' }
+    }
+
+    // Get func from the operation
+    const invokeOp = operation as { func: { toXDR: (format: string) => string }; auth?: Array<{ toXDR: (format: string) => string }> }
+    const funcXdr = invokeOp.func.toXDR('base64')
+
+    // Get auth entries from simulation data
+    const simData = tx.simulationData
+    if (!simData?.result?.auth) {
+      return { success: false, error: 'No simulation data or auth entries' }
+    }
+
+    // Sign each auth entry with the passkey
+    const signedAuthXdrs: string[] = []
+    for (const authEntry of simData.result.auth) {
+      const signedEntry = await kit.signAuthEntry(authEntry)
+      signedAuthXdrs.push(signedEntry.toXDR('base64'))
+    }
+
+    // Submit via relayerService which includes Turnstile header
+    // The relayer proxy handles simulation and transaction building server-side
+    const result = await relayerSend(funcXdr, signedAuthXdrs)
+
+    return {
+      success: result.success,
+      hash: result.hash,
+      error: result.error,
+    }
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Unknown error during sign and submit',
+    }
+  }
 }
 
 // Export the kit getter for advanced usage
