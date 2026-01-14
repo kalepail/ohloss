@@ -2,7 +2,6 @@
 // Uses OpenZeppelin's smart-account-kit for WebAuthn passkey-based Stellar smart wallets
 
 import { SmartAccountKit, IndexedDBStorage } from 'smart-account-kit'
-import { launchtubeHeaders } from '../stores/turnstileStore'
 
 // Configuration from environment
 const CONFIG = {
@@ -11,8 +10,7 @@ const CONFIG = {
   accountWasmHash: import.meta.env.VITE_ACCOUNT_WASM_HASH || '',
   webauthnVerifierAddress: import.meta.env.VITE_WEBAUTHN_VERIFIER_ADDRESS || '',
   nativeTokenContract: import.meta.env.VITE_NATIVE_TOKEN_CONTRACT || 'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC',
-  launchtubeUrl: import.meta.env.VITE_LAUNCHTUBE_URL || '',
-  launchtubeJwt: import.meta.env.VITE_LAUNCHTUBE_JWT || '',
+  relayerUrl: import.meta.env.VITE_RELAYER_URL || '',
   indexerUrl: import.meta.env.VITE_SMART_ACCOUNT_INDEXER_URL || '',
 }
 
@@ -39,16 +37,8 @@ export function getKit(): SmartAccountKit {
       rpName: 'Ohloss',
       // Indexer for reverse lookups (credential -> contracts)
       ...(CONFIG.indexerUrl && { indexerUrl: CONFIG.indexerUrl }),
-      // Launchtube for fee-sponsored transactions (optional)
-      // The launchtubeHeaders object is shared with turnstileStore and is mutated
-      // when a Turnstile token is obtained, enabling bot protection for submissions
-      ...(CONFIG.launchtubeUrl && {
-        launchtube: {
-          url: CONFIG.launchtubeUrl,
-          jwt: CONFIG.launchtubeJwt || undefined,
-          headers: launchtubeHeaders,
-        },
-      }),
+      // Relayer for fee-sponsored transactions (optional)
+      ...(CONFIG.relayerUrl && { relayerUrl: CONFIG.relayerUrl }),
     })
   }
 

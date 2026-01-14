@@ -225,7 +225,7 @@ async function buildAndSimulateSwapTransaction(
     // Get the deployer account from network for correct sequence number
     const deployerAccount = await server.getAccount(deployerPubKey)
     const transaction = new TransactionBuilder(deployerAccount, {
-      fee: '10000000', // 1 XLM max fee (will be sponsored via Launchtube)
+      fee: '10000000', // 1 XLM max fee (will be sponsored via Relayer)
       networkPassphrase: NETWORK_PASSPHRASE,
     })
       .addOperation(invokeOp)
@@ -343,11 +343,11 @@ export async function executeSwap(
 
     const signedXdr = signedEnvelope.toXDR('base64')
 
-    // Step 4: Submit via Launchtube (if configured) or direct RPC
+    // Step 4: Submit via Relayer (if configured) or direct RPC
     let submitResult: { success: boolean; hash?: string; error?: string }
 
-    if (kit.launchtube) {
-      submitResult = await kit.launchtube.send(signedXdr)
+    if (kit.relayer) {
+      submitResult = await kit.relayer.sendXdr(signedXdr)
     } else {
       // Direct RPC submission - note: this won't work for smart wallets without fee sponsorship
       const server = new RpcServer(RPC_URL)

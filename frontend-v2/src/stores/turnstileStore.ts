@@ -7,26 +7,25 @@ interface TurnstileStore {
 }
 
 /**
- * Shared headers object for Launchtube requests.
- * This is passed by reference to LaunchtubeClient, so mutations
- * to this object will be reflected in all future requests.
+ * Shared headers object for Relayer requests.
+ * Can be passed by reference when making manual Relayer calls.
  */
-export const launchtubeHeaders: Record<string, string> = {}
+export const relayerHeaders: Record<string, string> = {}
 
 /**
  * Zustand store for managing Cloudflare Turnstile token.
  * The token is obtained from the Turnstile widget callback
- * and used for Launchtube transaction submissions.
+ * and can be used for bot-protected transaction submissions.
  */
 export const useTurnstileStore = create<TurnstileStore>((set) => ({
   token: null,
   setToken: (token: string) => {
-    // Update the shared headers object for Launchtube
-    launchtubeHeaders['X-Turnstile-Response'] = token
+    // Update the shared headers object for Relayer
+    relayerHeaders['X-Turnstile-Response'] = token
     set({ token })
   },
   clearToken: () => {
-    delete launchtubeHeaders['X-Turnstile-Response']
+    delete relayerHeaders['X-Turnstile-Response']
     set({ token: null })
   },
 }))

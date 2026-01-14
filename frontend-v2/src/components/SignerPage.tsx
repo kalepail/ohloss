@@ -809,7 +809,7 @@ export function SignerPage() {
 
       // IMPORTANT: smart-account-kit defaults auth signature expiration to ~timeoutInSeconds,
       // which is typically ~30s (6 ledgers). That is too short for passkey prompts +
-      // Launchtube's (re-)simulation step.
+      // Relayer's (re-)simulation step.
       // We explicitly set auth signature expiration to 24 hours.
       const LEDGERS_PER_DAY = 17_280 // ~5s ledgers
       const { sequence: latestLedgerSeq } = await kit.rpc.getLatestLedger()
@@ -902,9 +902,9 @@ export function SignerPage() {
         // Submit if requested
         let txHash: string | undefined
 
-        if (pendingRequest.submit && kit.launchtube) {
+        if (pendingRequest.submit && kit.relayer) {
           setStatusMessage('Submitting transaction...')
-          const submitResult = await kit.launchtube.send(signedXdr)
+          const submitResult = await kit.relayer.sendXdr(signedXdr)
           if (!submitResult.success) {
             throw new Error(submitResult.error || 'Transaction submission failed')
           }

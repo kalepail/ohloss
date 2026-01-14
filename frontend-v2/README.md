@@ -42,7 +42,7 @@ Copy `.env.example` to `.env`. Key variables:
 | `VITE_RPC_URL` | Stellar RPC endpoint |
 | `VITE_OHLOSS_CONTRACT` | Main contract address |
 | `VITE_FEE_VAULT_CONTRACT` | Fee vault address |
-| `VITE_LAUNCHTUBE_URL` | Fee sponsoring service |
+| `VITE_RELAYER_URL` | Fee sponsoring service (OpenZeppelin Channels) |
 | `VITE_TURNSTILE_SITE_KEY` | Cloudflare bot protection |
 | `VITE_API_URL` | Backend API (api-worker) |
 
