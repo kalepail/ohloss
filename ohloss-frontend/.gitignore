@@ -6,6 +6,10 @@ dist
 dist-ssr
 *.local
 
+# Wrangler local state (deployment config, etc.)
+.wrangler
+
+
 # Editor
 .vscode/*
 !.vscode/extensions.json
@@ -30,3 +34,4 @@ lerna-debug.log*
 .env
 .env.local
 .env.*.local
+.dev.vars

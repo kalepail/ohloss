@@ -1,27 +1,28 @@
 {
-  "name": "number-guess-game",
+  "name": "ohloss-frontend",
   "private": true,
   "version": "0.0.1",
   "type": "module",
   "scripts": {
-    "dev": "vite --port 5174",
+    "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@openzeppelin/relayer-plugin-channels": "^0.5.0",
     "@stellar/stellar-sdk": "^14.4.3",
     "@tailwindcss/postcss": "^4.1.18",
     "ohloss": "file:../bunt/bindings/ohloss",
-    "number-guess": "file:../bunt/bindings/number-guess",
-    "canvas-confetti": "^1.9.4",
+    "fee-vault": "file:../bunt/bindings/fee-vault",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-router-dom": "^7.12.0",
+    "smart-account-kit": "^0.2.6",
     "zustand": "^5.0.10"
   },
   "devDependencies": {
-    "@types/canvas-confetti": "^1.9.0",
+    "@cloudflare/workers-types": "^4.20260114.0",
     "@types/react": "^19.2.8",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.2",
@@ -29,6 +30,7 @@
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.18",
     "typescript": "^5.9.3",
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "wrangler": "^4.59.1"
   }
 }

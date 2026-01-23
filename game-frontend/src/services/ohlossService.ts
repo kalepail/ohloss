@@ -359,7 +359,7 @@ async function getPlayerData(playerAddress: string): Promise<{ timeMultiplierSta
 
 /**
  * Get player's selected faction.
- * Returns faction number (0=WholeNoodle, 1=PointyStick, 2=SpecialRock), or null if not set.
+ * Returns faction number (0=GildedFin, 1=VerdantHollow, 2=Wobblestone), or null if not set.
  */
 export async function getPlayerFaction(playerAddress: string): Promise<number | null> {
   if (!OHLOSS_CONTRACT) return null

@@ -4,9 +4,9 @@
 
 // Faction definitions
 export const FACTIONS = {
-  0: { name: 'Whole Noodle', emoji: '🍜', color: 'text-amber-600', bg: 'bg-amber-100' },
-  1: { name: 'Pointy Stick', emoji: '🗡️', color: 'text-slate-600', bg: 'bg-slate-100' },
-  2: { name: 'Special Rock', emoji: '🪨', color: 'text-emerald-600', bg: 'bg-emerald-100' },
+  0: { name: 'Gilded Fin', emoji: '𓆛', color: 'text-amber-600', bg: 'bg-amber-100' },
+  1: { name: 'Verdant Hollow', emoji: '𓆣', color: 'text-emerald-600', bg: 'bg-emerald-100' },
+  2: { name: 'Wobblestone', emoji: '𓅣', color: 'text-slate-600', bg: 'bg-slate-100' },
 } as const
 
 export type FactionId = keyof typeof FACTIONS

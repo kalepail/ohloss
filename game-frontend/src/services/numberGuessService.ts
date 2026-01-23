@@ -62,7 +62,7 @@ export async function getLatestLedgerSequence(): Promise<number | null> {
 
 // Placeholder G address for transaction building
 // Smart wallets use C addresses but SDK requires G address for publicKey
-// The actual transaction source is handled by Launchtube (fee sponsor)
+// The actual transaction source is handled by Relayer (fee sponsor)
 const PLACEHOLDER_SOURCE = 'GCHPTWXMT3HYF4RLZHWBNRF4MPXLTJ76ISHMSYIWCCDXWUYOQG5MR2AB'
 
 // Default options for contract method calls
@@ -299,7 +299,7 @@ export async function prepareStartGame(
 
   try {
     // Build transaction with placeholder G address as source
-    // (The actual source is handled by Launchtube fee sponsor)
+    // (The actual source is handled by Relayer fee sponsor)
     //
     // IMPORTANT:
     // - We use player1's address as a temporary placeholder for player2 during simulation
@@ -421,7 +421,7 @@ export async function joinGame(
     }
 
     // Build transaction with placeholder G address as source
-    // (Fee sponsor / Launchtube will be the actual transaction source)
+    // (Fee sponsor / Relayer will be the actual transaction source)
     const buildClient = new NumberGuessClient({
       contractId: GAME_CONTRACT,
       networkPassphrase: NETWORK_PASSPHRASE,
@@ -502,7 +502,7 @@ export async function makeGuess(
   if ('error' in preopen) return { error: preopen.error }
 
   try {
-    // Use placeholder G address for building (Launchtube handles actual source)
+    // Use placeholder G address for building (Relayer handles actual source)
     const client = new NumberGuessClient({
       contractId: GAME_CONTRACT,
       networkPassphrase: NETWORK_PASSPHRASE,
@@ -562,7 +562,7 @@ export async function revealWinner(
       return { error: 'Both players must guess before revealing' }
     }
 
-    // Use placeholder G address for building (Launchtube handles actual source)
+    // Use placeholder G address for building (Relayer handles actual source)
     const client = new NumberGuessClient({
       contractId: GAME_CONTRACT,
       networkPassphrase: NETWORK_PASSPHRASE,
