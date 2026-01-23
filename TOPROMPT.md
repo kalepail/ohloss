@@ -1,3 +1,5 @@
+* Someone could switch faction right before epoch switch, dump all their FP into a single first game and win big, especially if they guaranteed a win. Might need to know epoch at start of epoch or disqualify participation or reward if there was a faction change
+
 * I want you to do a detailed audit of @frontend-v2 for code cleanliness. I want to ensure proper use of utilities and methods for best practices for projects like this. No duplicated code, keep things DRY, use methods provided by installed packages vs writing things by hand. The project might be in good shape already but I want you to do a deep audit and ensure things are clean, well organized, DRY and production ready
 
 MAYBE
