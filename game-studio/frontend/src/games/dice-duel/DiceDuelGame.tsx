@@ -37,26 +37,50 @@ const DiceFace = ({
   value,
   rolling = false,
   tone = 'red',
+  rolled = false,
 }: {
   value: number | null;
   rolling?: boolean;
   tone?: 'red' | 'gold';
+  rolled?: boolean;
 }) => {
   const pipColor = tone === 'gold' ? 'bg-amber-500' : 'bg-rose-600';
   const pipGlow =
     tone === 'gold'
       ? 'shadow-[0_0_10px_rgba(251,191,36,0.55)]'
       : 'shadow-[0_0_10px_rgba(244,63,94,0.55)]';
-  const pips = value ? DICE_PIPS[value] : [];
+  const [displayValue, setDisplayValue] = useState<number | null>(value ?? 1);
+
+  useEffect(() => {
+    if (!rolling) return;
+    const rollInterval = setInterval(() => {
+      setDisplayValue(Math.floor(Math.random() * 6) + 1);
+    }, 120);
+
+    return () => clearInterval(rollInterval);
+  }, [rolling]);
+
+  useEffect(() => {
+    if (rolling) return;
+    if (value !== null && value !== undefined) {
+      setDisplayValue(value);
+    } else if (rolled) {
+      setDisplayValue(null);
+    } else {
+      setDisplayValue(1);
+    }
+  }, [rolling, rolled, value]);
+
+  const pips = displayValue ? DICE_PIPS[displayValue] : [];
 
   return (
     <div
-      className={`dice-face relative flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border-2 border-white/60 bg-white/90 shadow-[0_10px_30px_rgba(0,0,0,0.2)] overflow-hidden ${
+      className={`dice-face relative flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-[22px] border-2 border-white/60 bg-white/90 shadow-[0_10px_30px_rgba(0,0,0,0.2)] overflow-hidden ${
         rolling ? 'dice-roll' : ''
       }`}
-      aria-label={value ? `Dice showing ${value}` : 'Dice'}
+      aria-label={displayValue ? `Dice showing ${displayValue}` : 'Dice'}
     >
-      {value === null ? (
+      {displayValue === null ? (
         <span className="relative z-10 text-xl font-black text-gray-800 drop-shadow-[0_1px_1px_rgba(0,0,0,0.2)]">?</span>
       ) : (
         pips.map(([x, y], index) => (
@@ -892,7 +916,7 @@ export function DiceDuelGame({
           content: '';
           position: absolute;
           inset: 6px;
-          border-radius: 16px;
+          border-radius: 18px;
           background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(255,255,255,0.15));
           box-shadow: inset 0 2px 6px rgba(255,255,255,0.8);
           z-index: 1;
@@ -902,7 +926,7 @@ export function DiceDuelGame({
           content: '';
           position: absolute;
           inset: 0;
-          border-radius: 18px;
+          border-radius: 22px;
           box-shadow: inset 0 6px 12px rgba(255,255,255,0.6), inset 0 -8px 16px rgba(0,0,0,0.12);
           z-index: 2;
           pointer-events: none;
@@ -1309,8 +1333,8 @@ export function DiceDuelGame({
                 Wager: {(Number(gameState.player1_wager) / 10000000).toFixed(2)} FP
               </div>
               <div className="mt-4 flex items-center gap-3 dice-tray">
-                <DiceFace value={gameState.player1_die1 ?? null} tone="gold" rolling={player1Rolling} />
-                <DiceFace value={gameState.player1_die2 ?? null} tone="gold" rolling={player1Rolling} />
+                <DiceFace value={gameState.player1_die1 ?? null} tone="gold" rolling={player1Rolling} rolled={gameState.player1_rolled} />
+                <DiceFace value={gameState.player1_die2 ?? null} tone="gold" rolling={player1Rolling} rolled={gameState.player1_rolled} />
                 <div className="text-xs font-bold text-gray-600">
                   {gameState.player1_rolled ? 'Rolled' : 'Waiting'}
                 </div>
@@ -1326,8 +1350,8 @@ export function DiceDuelGame({
                 Wager: {(Number(gameState.player2_wager) / 10000000).toFixed(2)} FP
               </div>
               <div className="mt-4 flex items-center gap-3 dice-tray">
-                <DiceFace value={gameState.player2_die1 ?? null} tone="red" rolling={player2Rolling} />
-                <DiceFace value={gameState.player2_die2 ?? null} tone="red" rolling={player2Rolling} />
+                <DiceFace value={gameState.player2_die1 ?? null} tone="red" rolling={player2Rolling} rolled={gameState.player2_rolled} />
+                <DiceFace value={gameState.player2_die2 ?? null} tone="red" rolling={player2Rolling} rolled={gameState.player2_rolled} />
                 <div className="text-xs font-bold text-gray-600">
                   {gameState.player2_rolled ? 'Rolled' : 'Waiting'}
                 </div>
@@ -1372,10 +1396,10 @@ export function DiceDuelGame({
               The house is ready. Reveal the dice.
             </p>
             <div className="flex items-center justify-center gap-4 mb-6 dice-tray">
-              <DiceFace value={gameState.player1_die1 ?? null} tone="gold" rolling={player1Rolling} />
-              <DiceFace value={gameState.player1_die2 ?? null} tone="gold" rolling={player1Rolling} />
-              <DiceFace value={gameState.player2_die1 ?? null} tone="red" rolling={player2Rolling} />
-              <DiceFace value={gameState.player2_die2 ?? null} tone="red" rolling={player2Rolling} />
+              <DiceFace value={gameState.player1_die1 ?? null} tone="gold" rolling={player1Rolling} rolled />
+              <DiceFace value={gameState.player1_die2 ?? null} tone="gold" rolling={player1Rolling} rolled />
+              <DiceFace value={gameState.player2_die1 ?? null} tone="red" rolling={player2Rolling} rolled />
+              <DiceFace value={gameState.player2_die2 ?? null} tone="red" rolling={player2Rolling} rolled />
             </div>
             <button
               onClick={handleRevealWinner}
@@ -1404,8 +1428,8 @@ export function DiceDuelGame({
                   {gameState.player1.slice(0, 8)}...{gameState.player1.slice(-4)}
                 </p>
                 <div className="flex items-center justify-center gap-3 mb-3 dice-tray">
-                  <DiceFace value={gameState.player1_die1 ?? null} tone="gold" />
-                  <DiceFace value={gameState.player1_die2 ?? null} tone="gold" />
+                  <DiceFace value={gameState.player1_die1 ?? null} tone="gold" rolled />
+                  <DiceFace value={gameState.player1_die2 ?? null} tone="gold" rolled />
                 </div>
                 <p className="text-lg font-black text-gray-800">
                   Total: {player1Total ?? '—'}
@@ -1418,8 +1442,8 @@ export function DiceDuelGame({
                   {gameState.player2.slice(0, 8)}...{gameState.player2.slice(-4)}
                 </p>
                 <div className="flex items-center justify-center gap-3 mb-3 dice-tray">
-                  <DiceFace value={gameState.player2_die1 ?? null} tone="red" />
-                  <DiceFace value={gameState.player2_die2 ?? null} tone="red" />
+                  <DiceFace value={gameState.player2_die1 ?? null} tone="red" rolled />
+                  <DiceFace value={gameState.player2_die2 ?? null} tone="red" rolled />
                 </div>
                 <p className="text-lg font-black text-gray-800">
                   Total: {player2Total ?? '—'}
