@@ -39,6 +39,7 @@ export function getAllContractIds(): Record<string, string> {
 export const MOCK_OHLOSS_CONTRACT = getContractId('mock-ohloss');
 export const TWENTY_ONE_CONTRACT = getContractId('twenty-one');
 export const NUMBER_GUESS_CONTRACT = getContractId('number-guess');
+export const DICE_DUEL_CONTRACT = getContractId('dice-duel');
 
 // Dev wallet addresses
 export const DEV_ADMIN_ADDRESS = import.meta.env.VITE_DEV_ADMIN_ADDRESS || '';

@@ -260,6 +260,97 @@ bun run bindings
 cd frontend && bun run dev
 ```
 
+## Publish a Game (Self-hosted)
+
+OHLOSS does not host third-party games. To publish your game in production, you will:
+1) Push your code to your own GitHub repo
+2) Deploy your contract to mainnet
+3) Host a standalone frontend (Vercel, Surge, Cloudflare Pages, etc.)
+
+### Step 1: Deploy Contract to Mainnet
+```bash
+# Build optimized WASM
+bun run build
+
+# Install + deploy on mainnet
+stellar contract install --wasm target/wasm32v1-none/release/my_game.wasm --source <ADMIN> --network mainnet
+stellar contract deploy --wasm-hash <WASM_HASH> --source <ADMIN> --network mainnet -- \
+  --admin <ADMIN_ADDRESS> --ohloss <OHLOSS_MAINNET_CONTRACT_ID>
+```
+
+Find the current mainnet OHLOSS contract ID in `CHITSHEET.md`.
+
+### Step 2: Register Your Game (Whitelist)
+Mainnet OHLOSS only accepts outcomes from approved games. The OHLOSS admin must call `add_game`.
+```bash
+# (Admin-only) Register your game
+stellar contract invoke --id <OHLOSS_MAINNET_CONTRACT_ID> --source <OHLOSS_ADMIN> --network mainnet -- \
+  add_game --game_id <YOUR_GAME_CONTRACT_ID> --developer <YOUR_DEVELOPER_ADDRESS>
+```
+
+### Step 3: Extract a Standalone Frontend
+Copy the Game Studio frontend into a new repo and render only your game.
+```bash
+# From the repo root
+mkdir ../my-game-frontend
+rsync -av --exclude node_modules --exclude dist game-studio/frontend/ ../my-game-frontend/
+cd ../my-game-frontend
+```
+
+Update `src/App.tsx` to render just your game:
+```tsx
+import { Layout } from './components/Layout';
+import { useWallet } from './hooks/useWallet';
+import { MyGame } from './games/my-game/MyGame';
+
+export default function App() {
+  const { publicKey, isConnected, connectDev } = useWallet();
+  const userAddress = publicKey ?? '';
+
+  return (
+    <Layout>
+      {!isConnected ? (
+        <button onClick={() => connectDev(1)}>Connect Wallet</button>
+      ) : (
+        <MyGame
+          userAddress={userAddress}
+          currentEpoch={1}
+          availableFP={1000000000n}
+          onBack={() => {}}
+          onStandingsRefresh={() => {}}
+          onGameComplete={() => {}}
+        />
+      )}
+    </Layout>
+  );
+}
+```
+
+Note: the dev wallet is for local testing only. For production, replace it with a real wallet integration.
+
+### Step 4: Configure Mainnet Environment
+Create a `.env` in your standalone frontend:
+```bash
+VITE_SOROBAN_RPC_URL=https://soroban-mainnet.stellar.org
+VITE_NETWORK_PASSPHRASE=Public Global Stellar Network ; September 2015
+VITE_MY_GAME_CONTRACT_ID=<YOUR_MAINNET_CONTRACT_ID>
+```
+
+### Step 5: Build and Deploy
+```bash
+bun install
+bun run build
+
+# Vercel
+vercel --prod
+
+# Surge
+npx surge dist
+
+# Cloudflare Pages
+wrangler pages deploy dist
+```
+
 ## Troubleshooting
 
 | Issue | Solution |

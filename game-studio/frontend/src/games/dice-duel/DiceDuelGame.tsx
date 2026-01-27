@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { NumberGuessService } from './numberGuessService';
+import { DiceDuelService } from './diceDuelService';
 import { requestCache, createCacheKey } from '@/utils/requestCache';
 import { useWallet } from '@/hooks/useWallet';
-import { NUMBER_GUESS_CONTRACT } from '@/utils/constants';
+import { DICE_DUEL_CONTRACT } from '@/utils/constants';
 import { getFundedSimulationSourceAddress } from '@/utils/simulationUtils';
 import { devWalletService, DevWalletService } from '@/services/devWalletService';
 import type { Game } from './bindings';
@@ -22,9 +22,80 @@ const createRandomSessionId = (): number => {
 };
 
 // Create service instance with the contract ID
-const numberGuessService = new NumberGuessService(NUMBER_GUESS_CONTRACT);
+const diceDuelService = new DiceDuelService(DICE_DUEL_CONTRACT);
 
-interface NumberGuessGameProps {
+const DICE_PIPS: Record<number, Array<[number, number]>> = {
+  1: [[50, 50]],
+  2: [[25, 25], [75, 75]],
+  3: [[25, 25], [50, 50], [75, 75]],
+  4: [[25, 25], [25, 75], [75, 25], [75, 75]],
+  5: [[25, 25], [25, 75], [75, 25], [75, 75], [50, 50]],
+  6: [[25, 25], [25, 50], [25, 75], [75, 25], [75, 50], [75, 75]],
+};
+
+const DiceFace = ({
+  value,
+  rolling = false,
+  tone = 'red',
+  rolled = false,
+}: {
+  value: number | null;
+  rolling?: boolean;
+  tone?: 'red' | 'gold';
+  rolled?: boolean;
+}) => {
+  const pipColor = tone === 'gold' ? 'bg-amber-500' : 'bg-rose-600';
+  const pipGlow =
+    tone === 'gold'
+      ? 'shadow-[0_0_10px_rgba(251,191,36,0.55)]'
+      : 'shadow-[0_0_10px_rgba(244,63,94,0.55)]';
+  const [displayValue, setDisplayValue] = useState<number | null>(value ?? 1);
+
+  useEffect(() => {
+    if (!rolling) return;
+    const rollInterval = setInterval(() => {
+      setDisplayValue(Math.floor(Math.random() * 6) + 1);
+    }, 120);
+
+    return () => clearInterval(rollInterval);
+  }, [rolling]);
+
+  useEffect(() => {
+    if (rolling) return;
+    if (value !== null && value !== undefined) {
+      setDisplayValue(value);
+    } else if (rolled) {
+      setDisplayValue(null);
+    } else {
+      setDisplayValue(1);
+    }
+  }, [rolling, rolled, value]);
+
+  const pips = displayValue ? DICE_PIPS[displayValue] : [];
+
+  return (
+    <div
+      className={`dice-face relative flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-[22px] border-2 border-white/60 bg-white/90 shadow-[0_10px_30px_rgba(0,0,0,0.2)] overflow-hidden ${
+        rolling ? 'dice-roll' : ''
+      }`}
+      aria-label={displayValue ? `Dice showing ${displayValue}` : 'Dice'}
+    >
+      {displayValue === null ? (
+        <span className="relative z-10 text-xl font-black text-gray-800 drop-shadow-[0_1px_1px_rgba(0,0,0,0.2)]">?</span>
+      ) : (
+        pips.map(([x, y], index) => (
+          <span
+            key={`${x}-${y}-${index}`}
+            className={`absolute z-10 w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 rounded-full ${pipColor} ${pipGlow} shadow-[inset_0_1px_2px_rgba(255,255,255,0.4)]`}
+            style={{ left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)' }}
+          />
+        ))
+      )}
+    </div>
+  );
+};
+
+interface DiceDuelGameProps {
   userAddress: string;
   currentEpoch: number;
   availableFP: bigint;
@@ -35,7 +106,7 @@ interface NumberGuessGameProps {
   onGameComplete: () => void;
 }
 
-export function NumberGuessGame({
+export function DiceDuelGame({
   userAddress,
   availableFP,
   initialXDR,
@@ -43,20 +114,20 @@ export function NumberGuessGame({
   onBack,
   onStandingsRefresh,
   onGameComplete
-}: NumberGuessGameProps) {
+}: DiceDuelGameProps) {
   const DEFAULT_WAGER = '0.1';
   const { getContractSigner, walletType } = useWallet();
   // Use a random session ID that fits in u32 (avoid 0 because UI validation treats <=0 as invalid)
   const [sessionId, setSessionId] = useState<number>(() => createRandomSessionId());
   const [player1Address, setPlayer1Address] = useState(userAddress);
   const [player1Wager, setPlayer1Wager] = useState(DEFAULT_WAGER);
-  const [guess, setGuess] = useState<number | null>(null);
   const [gameState, setGameState] = useState<Game | null>(null);
   const [loading, setLoading] = useState(false);
   const [quickstartLoading, setQuickstartLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [gamePhase, setGamePhase] = useState<'create' | 'guess' | 'reveal' | 'complete'>('create');
+  const [gamePhase, setGamePhase] = useState<'create' | 'roll' | 'reveal' | 'complete'>('create');
+  const [rollingPlayer, setRollingPlayer] = useState<'player1' | 'player2' | 'both' | null>(null);
   const [createMode, setCreateMode] = useState<'create' | 'import' | 'load'>('create');
   const [exportedAuthEntryXDR, setExportedAuthEntryXDR] = useState<string | null>(null);
   const [importAuthEntryXDR, setImportAuthEntryXDR] = useState('');
@@ -105,8 +176,8 @@ export function NumberGuessGame({
     try {
       // Use short TTL (5s) since game state can change frequently, but still dedupe rapid calls
       const game = await requestCache.dedupe(
-        createCacheKey('game-state', sessionId),
-        () => numberGuessService.getGame(sessionId),
+        createCacheKey('dice-duel-game-state', sessionId),
+        () => diceDuelService.getGame(sessionId),
         5000 // 5 second TTL for game state
       );
       setGameState(game);
@@ -114,11 +185,10 @@ export function NumberGuessGame({
       // Determine game phase based on state
       if (game && game.winner !== null && game.winner !== undefined) {
         setGamePhase('complete');
-      } else if (game && game.player1_guess !== null && game.player1_guess !== undefined &&
-                 game.player2_guess !== null && game.player2_guess !== undefined) {
+      } else if (game && game.player1_rolled && game.player2_rolled) {
         setGamePhase('reveal');
       } else {
-        setGamePhase('guess');
+        setGamePhase('roll');
       }
     } catch (err) {
       // Game doesn't exist yet
@@ -144,8 +214,8 @@ export function NumberGuessGame({
 
   // Handle initial values from URL deep linking or props
   // Expected URL formats:
-  //   - With auth entry: ?game=number-guess&auth=AAAA... (Session ID, P1 address, P1 wager parsed from auth entry)
-  //   - With session ID: ?game=number-guess&session-id=123 (Load existing game)
+  //   - With auth entry: ?game=dice-duel&auth=AAAA... (Session ID, P1 address, P1 wager parsed from auth entry)
+  //   - With session ID: ?game=dice-duel&session-id=123 (Load existing game)
   // Note: GamesCatalog cleans URL params, so we prioritize props over URL
   useEffect(() => {
     // Priority 1: Check initialXDR prop (from GamesCatalog after URL cleanup)
@@ -153,22 +223,22 @@ export function NumberGuessGame({
       console.log('[Deep Link] Using initialXDR prop from GamesCatalog');
 
       try {
-        const parsed = numberGuessService.parseAuthEntry(initialXDR);
+        const parsed = diceDuelService.parseAuthEntry(initialXDR);
         const sessionId = parsed.sessionId;
 
         console.log('[Deep Link] Parsed session ID from initialXDR:', sessionId);
 
         // Check if game already exists (both players have signed)
-        numberGuessService.getGame(sessionId)
+        diceDuelService.getGame(sessionId)
           .then((game) => {
             if (game) {
               // Game exists! Load it directly instead of going to import mode
-              console.log('[Deep Link] Game already exists, loading directly to guess phase');
+              console.log('[Deep Link] Game already exists, loading directly to roll phase');
               console.log('[Deep Link] Game data:', game);
 
               // Auto-load the game - bypass create phase entirely
               setGameState(game);
-              setGamePhase('guess');
+              setGamePhase('roll');
               setSessionId(sessionId); // Set session ID for the game
             } else {
               // Game doesn't exist yet, go to import mode
@@ -217,22 +287,22 @@ export function NumberGuessGame({
 
       // Try to parse auth entry to get session ID
       try {
-        const parsed = numberGuessService.parseAuthEntry(authEntry);
+        const parsed = diceDuelService.parseAuthEntry(authEntry);
         const sessionId = parsed.sessionId;
 
         console.log('[Deep Link] Parsed session ID from URL auth entry:', sessionId);
 
         // Check if game already exists (both players have signed)
-        numberGuessService.getGame(sessionId)
+        diceDuelService.getGame(sessionId)
           .then((game) => {
             if (game) {
               // Game exists! Load it directly instead of going to import mode
-              console.log('[Deep Link] Game already exists (URL), loading directly to guess phase');
+              console.log('[Deep Link] Game already exists (URL), loading directly to roll phase');
               console.log('[Deep Link] Game data:', game);
 
               // Auto-load the game - bypass create phase entirely
               setGameState(game);
-              setGamePhase('guess');
+              setGamePhase('roll');
               setSessionId(sessionId); // Set session ID for the game
             } else {
               // Game doesn't exist yet, go to import mode
@@ -302,7 +372,7 @@ export function NumberGuessGame({
 
       try {
         console.log('[Auto-Parse] Parsing auth entry XDR...');
-        const gameParams = numberGuessService.parseAuthEntry(importAuthEntryXDR.trim());
+        const gameParams = diceDuelService.parseAuthEntry(importAuthEntryXDR.trim());
 
         // Check if user is trying to import their own auth entry (self-play prevention)
         if (gameParams.player1 === userAddress) {
@@ -358,7 +428,7 @@ export function NumberGuessGame({
 
       console.log('Preparing transaction for Player 1 to sign...');
       console.log('Using placeholder Player 2 values for simulation only');
-      const authEntryXDR = await numberGuessService.prepareStartGame(
+      const authEntryXDR = await diceDuelService.prepareStartGame(
         sessionId,
         player1Address,
         placeholderPlayer2Address,
@@ -375,16 +445,16 @@ export function NumberGuessGame({
       const pollInterval = setInterval(async () => {
         try {
           // Try to load the game
-          const game = await numberGuessService.getGame(sessionId);
+          const game = await diceDuelService.getGame(sessionId);
           if (game) {
-            console.log('Game found! Player 2 has finalized the transaction. Transitioning to guess phase...');
+            console.log('Game found! Player 2 has finalized the transaction. Transitioning to roll phase...');
             clearInterval(pollInterval);
 
             // Update game state
             setGameState(game);
             setExportedAuthEntryXDR(null);
             setSuccess('Game created! Player 2 has signed and submitted.');
-            setGamePhase('guess');
+            setGamePhase('roll');
 
             // Refresh Dashboard to show updated Available FP (locked in game)
             onStandingsRefresh();
@@ -492,7 +562,7 @@ export function NumberGuessGame({
         player2AddressQuickstart,
       ]);
 
-      const authEntryXDR = await numberGuessService.prepareStartGame(
+      const authEntryXDR = await diceDuelService.prepareStartGame(
         quickstartSessionId,
         player1AddressQuickstart,
         placeholderPlayer2Address,
@@ -501,26 +571,26 @@ export function NumberGuessGame({
         player1Signer
       );
 
-      const fullySignedTxXDR = await numberGuessService.importAndSignAuthEntry(
+      const fullySignedTxXDR = await diceDuelService.importAndSignAuthEntry(
         authEntryXDR,
         player2AddressQuickstart,
         p1Wager,
         player2Signer
       );
 
-      await numberGuessService.finalizeStartGame(
+      await diceDuelService.finalizeStartGame(
         fullySignedTxXDR,
         player2AddressQuickstart,
         player2Signer
       );
 
       try {
-        const game = await numberGuessService.getGame(quickstartSessionId);
+        const game = await diceDuelService.getGame(quickstartSessionId);
         setGameState(game);
       } catch (err) {
         console.log('Quickstart game not available yet:', err);
       }
-      setGamePhase('guess');
+      setGamePhase('roll');
       onStandingsRefresh();
       setSuccess('Quickstart complete! Both players signed and the game is ready.');
       setTimeout(() => setSuccess(null), 2000);
@@ -555,7 +625,7 @@ export function NumberGuessGame({
       // Parse auth entry to extract game parameters
       // The auth entry contains: session_id, player1, player1_wager
       console.log('Parsing auth entry to extract game parameters...');
-      const gameParams = numberGuessService.parseAuthEntry(importAuthEntryXDR.trim());
+      const gameParams = diceDuelService.parseAuthEntry(importAuthEntryXDR.trim());
 
       console.log('Extracted from auth entry:', {
         sessionId: gameParams.sessionId,
@@ -584,7 +654,7 @@ export function NumberGuessGame({
       // Step 1: Import Player 1's signed auth entry and rebuild transaction
       // New simplified API - only needs: auth entry, player 2 address, player 2 wager
       console.log('Importing Player 1 auth entry and rebuilding transaction...');
-      const fullySignedTxXDR = await numberGuessService.importAndSignAuthEntry(
+      const fullySignedTxXDR = await diceDuelService.importAndSignAuthEntry(
         importAuthEntryXDR.trim(),
         userAddress, // Player 2 address (current user)
         p2Wager,
@@ -593,7 +663,7 @@ export function NumberGuessGame({
 
       // Step 2: Player 2 finalizes and submits (they are the transaction source)
       console.log('Simulating and submitting transaction...');
-      await numberGuessService.finalizeStartGame(
+      await diceDuelService.finalizeStartGame(
         fullySignedTxXDR,
         userAddress,
         signer
@@ -603,7 +673,7 @@ export function NumberGuessGame({
       console.log('Transaction submitted successfully! Updating state...');
       setSessionId(gameParams.sessionId);
       setSuccess('Game created successfully! Both players signed.');
-      setGamePhase('guess');
+      setGamePhase('roll');
 
       // Clear import fields
       setImportAuthEntryXDR('');
@@ -657,8 +727,8 @@ export function NumberGuessGame({
 
       // Try to load the game (use cache to prevent duplicate calls)
       const game = await requestCache.dedupe(
-        createCacheKey('game-state', parsedSessionId),
-        () => numberGuessService.getGame(parsedSessionId),
+        createCacheKey('dice-duel-game-state', parsedSessionId),
+        () => diceDuelService.getGame(parsedSessionId),
         5000
       );
 
@@ -679,18 +749,17 @@ export function NumberGuessGame({
       // Determine game phase based on game state
       if (game.winner !== null && game.winner !== undefined) {
         // Game is complete - show reveal phase with winner
-        setGamePhase('reveal');
+        setGamePhase('complete');
         const isWinner = game.winner === userAddress;
         setSuccess(isWinner ? '🎉 You won this game!' : 'Game complete. Winner revealed.');
-      } else if (game.player1_guess !== null && game.player1_guess !== undefined &&
-          game.player2_guess !== null && game.player2_guess !== undefined) {
-        // Both players guessed, waiting for reveal
+      } else if (game.player1_rolled && game.player2_rolled) {
+        // Both players rolled, waiting for reveal
         setGamePhase('reveal');
-        setSuccess('Game loaded! Both players have guessed. You can reveal the winner.');
+        setSuccess('Game loaded! Both players have rolled. You can reveal the winner.');
       } else {
-        // Still in guessing phase
-        setGamePhase('guess');
-        setSuccess('Game loaded! Make your guess.');
+        // Still in rolling phase
+        setGamePhase('roll');
+        setSuccess('Game loaded! Roll the dice when ready.');
       }
 
       // Clear success message after 2 seconds
@@ -722,7 +791,7 @@ export function NumberGuessGame({
         // Build URL with only Player 1's info and auth entry
         // Player 2 will specify their own wager when they import
         const params = new URLSearchParams({
-          'game': 'number-guess',
+          'game': 'dice-duel',
           'auth': exportedAuthEntryXDR,
         });
 
@@ -740,7 +809,7 @@ export function NumberGuessGame({
   const copyShareGameUrlWithSessionId = async () => {
     if (loadSessionId) {
       try {
-        const shareUrl = `${window.location.origin}${window.location.pathname}?game=number-guess&session-id=${loadSessionId}`;
+        const shareUrl = `${window.location.origin}${window.location.pathname}?game=dice-duel&session-id=${loadSessionId}`;
         await navigator.clipboard.writeText(shareUrl);
         setShareUrlCopied(true);
         setTimeout(() => setShareUrlCopied(false), 2000);
@@ -751,26 +820,27 @@ export function NumberGuessGame({
     }
   };
 
-  const handleMakeGuess = async () => {
-    if (guess === null) {
-      setError('Select a number to guess');
-      return;
-    }
-
+  const handleRoll = async () => {
     try {
       setLoading(true);
       setError(null);
       setSuccess(null);
+      if (isPlayer1) {
+        setRollingPlayer('player1');
+      } else if (isPlayer2) {
+        setRollingPlayer('player2');
+      }
 
       const signer = getContractSigner();
-      await numberGuessService.makeGuess(sessionId, userAddress, guess, signer);
+      await diceDuelService.roll(sessionId, userAddress, signer);
 
-      setSuccess(`Guess submitted: ${guess}`);
+      setSuccess('Roll committed! Waiting for the other player...');
       await loadGameState();
     } catch (err) {
-      console.error('Make guess error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to make guess');
+      console.error('Roll error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to roll');
     } finally {
+      setRollingPlayer(null);
       setLoading(false);
     }
   };
@@ -782,15 +852,16 @@ export function NumberGuessGame({
       setSuccess(null);
 
       const signer = getContractSigner();
-      await numberGuessService.revealWinner(sessionId, userAddress, signer);
+      setRollingPlayer('both');
+      await diceDuelService.revealWinner(sessionId, userAddress, signer);
 
       // Fetch updated on-chain state and derive the winner from it (avoid type mismatches from tx result decoding).
-      const updatedGame = await numberGuessService.getGame(sessionId);
+      const updatedGame = await diceDuelService.getGame(sessionId);
       setGameState(updatedGame);
       setGamePhase('complete');
 
       const isWinner = updatedGame?.winner === userAddress;
-      setSuccess(isWinner ? '🎉 You won!' : 'Game complete! Winner revealed.');
+      setSuccess(isWinner ? '🎉 You won the duel!' : 'Game complete! Winner revealed.');
 
       // Refresh faction standings immediately (without navigating away)
       onStandingsRefresh();
@@ -801,54 +872,114 @@ export function NumberGuessGame({
       console.error('Reveal winner error:', err);
       setError(err instanceof Error ? err.message : 'Failed to reveal winner');
     } finally {
+      setRollingPlayer(null);
       setLoading(false);
     }
   };
 
   const isPlayer1 = gameState && gameState.player1 === userAddress;
   const isPlayer2 = gameState && gameState.player2 === userAddress;
-  const hasGuessed = isPlayer1 ? gameState?.player1_guess !== null && gameState?.player1_guess !== undefined :
-                     isPlayer2 ? gameState?.player2_guess !== null && gameState?.player2_guess !== undefined : false;
+  const hasRolled = isPlayer1 ? !!gameState?.player1_rolled : isPlayer2 ? !!gameState?.player2_rolled : false;
 
-  const winningNumber = gameState?.winning_number;
-  const player1Guess = gameState?.player1_guess;
-  const player2Guess = gameState?.player2_guess;
-  const player1Distance =
-    winningNumber !== null && winningNumber !== undefined && player1Guess !== null && player1Guess !== undefined
-      ? Math.abs(Number(player1Guess) - Number(winningNumber))
-      : null;
-  const player2Distance =
-    winningNumber !== null && winningNumber !== undefined && player2Guess !== null && player2Guess !== undefined
-      ? Math.abs(Number(player2Guess) - Number(winningNumber))
-      : null;
+  const player1Dice = [gameState?.player1_die1 ?? null, gameState?.player1_die2 ?? null];
+  const player2Dice = [gameState?.player2_die1 ?? null, gameState?.player2_die2 ?? null];
+  const player1Rolling = rollingPlayer === 'player1' || rollingPlayer === 'both';
+  const player2Rolling = rollingPlayer === 'player2' || rollingPlayer === 'both';
+  const player1Total = player1Dice.every((die) => die !== null)
+    ? Number(player1Dice[0]) + Number(player1Dice[1])
+    : null;
+  const player2Total = player2Dice.every((die) => die !== null)
+    ? Number(player2Dice[0]) + Number(player2Dice[1])
+    : null;
 
   return (
-    <div className="bg-white/70 backdrop-blur-xl rounded-2xl p-8 shadow-xl border-2 border-purple-200">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-3xl font-black bg-gradient-to-r from-purple-600 via-pink-600 to-red-600 bg-clip-text text-transparent">
-            Number Guess Game 🎲
-          </h2>
-          <p className="text-sm text-gray-700 font-semibold mt-1">
-            Guess a number 1-10. Closest guess wins!
-          </p>
-          <p className="text-xs text-gray-500 font-mono mt-1">
-            Session ID: {sessionId}
-          </p>
-        </div>
-        <button
-          onClick={() => {
-            // If game is complete (has winner), refresh stats before going back
-            if (gameState?.winner) {
-              onGameComplete();
-            }
-            onBack();
-          }}
-          className="px-5 py-3 rounded-xl bg-gradient-to-r from-gray-200 to-gray-300 hover:from-gray-300 hover:to-gray-400 transition-all text-sm font-bold shadow-md hover:shadow-lg transform hover:scale-105"
-        >
-          ← Back to Games
-        </button>
+    <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-[#070b08] via-[#1a0d0d] to-[#07050f] p-6 sm:p-8">
+      <style>{`
+        @keyframes diceRoll {
+          0% { transform: translateY(0) rotateX(0deg) rotateY(0deg) rotateZ(0deg) scale(1); }
+          20% { transform: translateY(-10px) rotateX(120deg) rotateY(140deg) rotateZ(90deg) scale(1.02); }
+          50% { transform: translateY(4px) rotateX(240deg) rotateY(240deg) rotateZ(180deg) scale(1.04); }
+          80% { transform: translateY(-8px) rotateX(320deg) rotateY(320deg) rotateZ(270deg) scale(1.02); }
+          100% { transform: translateY(0) rotateX(360deg) rotateY(360deg) rotateZ(360deg) scale(1); }
+        }
+        .dice-roll {
+          animation: diceRoll 0.75s cubic-bezier(0.35, 0.1, 0.25, 1) infinite;
+          filter: drop-shadow(0 12px 14px rgba(0,0,0,0.25));
+        }
+        .dice-face {
+          position: relative;
+          z-index: 0;
+          transform-style: preserve-3d;
+          background: linear-gradient(145deg, rgba(255,255,255,0.98), rgba(238,238,238,0.92));
+        }
+        .dice-face::before {
+          content: '';
+          position: absolute;
+          inset: 6px;
+          border-radius: 18px;
+          background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(255,255,255,0.15));
+          box-shadow: inset 0 2px 6px rgba(255,255,255,0.8);
+          z-index: 1;
+          pointer-events: none;
+        }
+        .dice-face::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          border-radius: 22px;
+          box-shadow: inset 0 6px 12px rgba(255,255,255,0.6), inset 0 -8px 16px rgba(0,0,0,0.12);
+          z-index: 2;
+          pointer-events: none;
+        }
+        .dice-tray {
+          padding: 10px 14px;
+          border-radius: 18px;
+          background: radial-gradient(circle at top, rgba(255,255,255,0.8), rgba(255,255,255,0.55)) , linear-gradient(135deg, rgba(20,83,45,0.08), rgba(153,27,27,0.08));
+          border: 1px solid rgba(255,255,255,0.7);
+          box-shadow: inset 0 3px 12px rgba(0,0,0,0.12), 0 6px 16px rgba(0,0,0,0.08);
+        }
+        @keyframes neonPulse {
+          0%, 100% { text-shadow: 0 0 8px rgba(255, 215, 120, 0.6), 0 0 24px rgba(255, 80, 80, 0.35); }
+          50% { text-shadow: 0 0 12px rgba(255, 215, 120, 0.9), 0 0 32px rgba(255, 80, 80, 0.55); }
+        }
+        .neon-title {
+          animation: neonPulse 2.2s ease-in-out infinite;
+        }
+      `}</style>
+
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute -top-24 left-1/2 h-64 w-64 -translate-x-1/2 rounded-full bg-rose-500/20 blur-[120px]" />
+        <div className="absolute -bottom-32 right-0 h-72 w-72 rounded-full bg-amber-400/20 blur-[140px]" />
+        <div className="absolute top-1/3 -left-16 h-56 w-56 rounded-full bg-emerald-400/10 blur-[120px]" />
       </div>
+
+      <div className="relative z-10 max-w-6xl mx-auto">
+        <div className="bg-gradient-to-br from-[#0b0f17]/90 via-[#121726]/90 to-[#1a1022]/90 backdrop-blur-xl rounded-2xl p-8 shadow-2xl border border-white/10">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-3xl sm:text-4xl font-black bg-gradient-to-r from-amber-300 via-yellow-400 to-rose-400 bg-clip-text text-transparent neon-title">
+                Dice Duel 🎲
+              </h2>
+              <p className="text-sm text-gray-200 font-semibold mt-1">
+                Roll two dice each. Highest total wins. Ties favor Player 1.
+              </p>
+              <p className="text-xs text-gray-400 font-mono mt-1">
+                Session ID: {sessionId}
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                // If game is complete (has winner), refresh stats before going back
+                if (gameState?.winner) {
+                  onGameComplete();
+                }
+                onBack();
+              }}
+              className="px-5 py-3 rounded-xl bg-gradient-to-r from-gray-200 to-gray-300 hover:from-gray-300 hover:to-gray-400 transition-all text-sm font-bold shadow-md hover:shadow-lg transform hover:scale-105"
+            >
+              ← Back to Games
+            </button>
+          </div>
 
       {error && (
         <div className="mb-6 p-4 bg-gradient-to-r from-red-50 to-pink-50 border-2 border-red-200 rounded-xl">
@@ -1189,11 +1320,11 @@ export function NumberGuessGame({
         </div>
       )}
 
-      {/* GUESS PHASE */}
-      {gamePhase === 'guess' && gameState && (
+      {/* ROLL PHASE */}
+      {gamePhase === 'roll' && gameState && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className={`p-5 rounded-xl border-2 ${isPlayer1 ? 'border-purple-400 bg-gradient-to-br from-purple-50 to-pink-50 shadow-lg' : 'border-gray-200 bg-white'}`}>
+            <div className={`p-5 rounded-2xl border-2 ${isPlayer1 ? 'border-amber-300 bg-gradient-to-br from-amber-50 to-rose-50 shadow-lg' : 'border-gray-200 bg-white'}`}>
               <div className="text-xs font-bold uppercase tracking-wide text-gray-600 mb-1">Player 1</div>
               <div className="font-mono text-sm font-semibold mb-2 text-gray-800">
                 {gameState.player1.slice(0, 8)}...{gameState.player1.slice(-4)}
@@ -1201,20 +1332,16 @@ export function NumberGuessGame({
               <div className="text-xs font-semibold text-gray-600">
                 Wager: {(Number(gameState.player1_wager) / 10000000).toFixed(2)} FP
               </div>
-              <div className="mt-3">
-                {gameState.player1_guess !== null && gameState.player1_guess !== undefined ? (
-                  <div className="inline-block px-3 py-1 rounded-full bg-gradient-to-r from-green-400 to-emerald-500 text-white text-xs font-bold shadow-md">
-                    ✓ Guessed
-                  </div>
-                ) : (
-                  <div className="inline-block px-3 py-1 rounded-full bg-gray-200 text-gray-600 text-xs font-bold">
-                    Waiting...
-                  </div>
-                )}
+              <div className="mt-4 flex items-center gap-3 dice-tray">
+                <DiceFace value={gameState.player1_die1 ?? null} tone="gold" rolling={player1Rolling} rolled={gameState.player1_rolled} />
+                <DiceFace value={gameState.player1_die2 ?? null} tone="gold" rolling={player1Rolling} rolled={gameState.player1_rolled} />
+                <div className="text-xs font-bold text-gray-600">
+                  {gameState.player1_rolled ? 'Rolled' : 'Waiting'}
+                </div>
               </div>
             </div>
 
-            <div className={`p-5 rounded-xl border-2 ${isPlayer2 ? 'border-purple-400 bg-gradient-to-br from-purple-50 to-pink-50 shadow-lg' : 'border-gray-200 bg-white'}`}>
+            <div className={`p-5 rounded-2xl border-2 ${isPlayer2 ? 'border-amber-300 bg-gradient-to-br from-amber-50 to-rose-50 shadow-lg' : 'border-gray-200 bg-white'}`}>
               <div className="text-xs font-bold uppercase tracking-wide text-gray-600 mb-1">Player 2</div>
               <div className="font-mono text-sm font-semibold mb-2 text-gray-800">
                 {gameState.player2.slice(0, 8)}...{gameState.player2.slice(-4)}
@@ -1222,54 +1349,35 @@ export function NumberGuessGame({
               <div className="text-xs font-semibold text-gray-600">
                 Wager: {(Number(gameState.player2_wager) / 10000000).toFixed(2)} FP
               </div>
-              <div className="mt-3">
-                {gameState.player2_guess !== null && gameState.player2_guess !== undefined ? (
-                  <div className="inline-block px-3 py-1 rounded-full bg-gradient-to-r from-green-400 to-emerald-500 text-white text-xs font-bold shadow-md">
-                    ✓ Guessed
-                  </div>
-                ) : (
-                  <div className="inline-block px-3 py-1 rounded-full bg-gray-200 text-gray-600 text-xs font-bold">
-                    Waiting...
-                  </div>
-                )}
+              <div className="mt-4 flex items-center gap-3 dice-tray">
+                <DiceFace value={gameState.player2_die1 ?? null} tone="red" rolling={player2Rolling} rolled={gameState.player2_rolled} />
+                <DiceFace value={gameState.player2_die2 ?? null} tone="red" rolling={player2Rolling} rolled={gameState.player2_rolled} />
+                <div className="text-xs font-bold text-gray-600">
+                  {gameState.player2_rolled ? 'Rolled' : 'Waiting'}
+                </div>
               </div>
             </div>
           </div>
 
-          {(isPlayer1 || isPlayer2) && !hasGuessed && (
+          {(isPlayer1 || isPlayer2) && !hasRolled && (
             <div className="space-y-4">
-              <label className="block text-sm font-bold text-gray-700">
-                Make Your Guess (1-10)
-              </label>
-              <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
-                  <button
-                    key={num}
-                    onClick={() => setGuess(num)}
-                    className={`p-4 rounded-xl border-2 font-black text-xl transition-all ${
-                      guess === num
-                        ? 'border-purple-500 bg-gradient-to-br from-purple-500 to-pink-500 text-white scale-110 shadow-2xl'
-                        : 'border-gray-200 bg-white hover:border-purple-300 hover:shadow-lg hover:scale-105'
-                    }`}
-                  >
-                    {num}
-                  </button>
-                ))}
-              </div>
+              <p className="text-sm font-semibold text-gray-700">
+                Ready to roll? Commit your dice so the duel can proceed.
+              </p>
               <button
-                onClick={handleMakeGuess}
-                disabled={isBusy || guess === null}
-                className="w-full py-4 rounded-xl font-bold text-white text-lg bg-gradient-to-r from-purple-500 via-pink-500 to-red-500 hover:from-purple-600 hover:via-pink-600 hover:to-red-600 disabled:from-gray-200 disabled:to-gray-300 disabled:text-gray-500 transition-all shadow-xl hover:shadow-2xl transform hover:scale-105 disabled:transform-none"
+                onClick={handleRoll}
+                disabled={isBusy}
+                className="w-full py-4 rounded-xl font-bold text-white text-lg bg-gradient-to-r from-rose-500 via-red-500 to-amber-500 hover:from-rose-600 hover:via-red-600 hover:to-amber-600 disabled:from-gray-200 disabled:to-gray-300 disabled:text-gray-500 transition-all shadow-xl hover:shadow-2xl transform hover:scale-105 disabled:transform-none"
               >
-                {loading ? 'Submitting...' : 'Submit Guess'}
+                {loading ? 'Rolling...' : '🎲 Roll Dice'}
               </button>
             </div>
           )}
 
-          {hasGuessed && (
-            <div className="p-4 bg-gradient-to-r from-blue-50 to-cyan-50 border-2 border-blue-200 rounded-xl">
-              <p className="text-sm font-semibold text-blue-700">
-                ✓ You've made your guess. Waiting for other player...
+          {hasRolled && (
+            <div className="p-4 bg-gradient-to-r from-amber-50 to-rose-50 border-2 border-amber-200 rounded-xl">
+              <p className="text-sm font-semibold text-amber-800">
+                ✓ You've rolled. Waiting for the other player...
               </p>
             </div>
           )}
@@ -1279,18 +1387,24 @@ export function NumberGuessGame({
       {/* REVEAL PHASE */}
       {gamePhase === 'reveal' && gameState && (
         <div className="space-y-6">
-          <div className="p-8 bg-gradient-to-br from-yellow-50 via-orange-50 to-amber-50 border-2 border-yellow-300 rounded-2xl text-center shadow-xl">
-            <div className="text-6xl mb-4">🎊</div>
+          <div className="p-8 bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50 border-2 border-amber-300 rounded-2xl text-center shadow-xl">
+            <div className="text-6xl mb-4">🎰</div>
             <h3 className="text-2xl font-black text-gray-900 mb-3">
-              Both Players Have Guessed!
+              Both Players Rolled!
             </h3>
             <p className="text-sm font-semibold text-gray-700 mb-6">
-              Click below to reveal the winner
+              The house is ready. Reveal the dice.
             </p>
+            <div className="flex items-center justify-center gap-4 mb-6 dice-tray">
+              <DiceFace value={gameState.player1_die1 ?? null} tone="gold" rolling={player1Rolling} rolled />
+              <DiceFace value={gameState.player1_die2 ?? null} tone="gold" rolling={player1Rolling} rolled />
+              <DiceFace value={gameState.player2_die1 ?? null} tone="red" rolling={player2Rolling} rolled />
+              <DiceFace value={gameState.player2_die2 ?? null} tone="red" rolling={player2Rolling} rolled />
+            </div>
             <button
               onClick={handleRevealWinner}
               disabled={isBusy}
-              className="px-10 py-4 rounded-xl font-bold text-white text-lg bg-gradient-to-r from-yellow-500 via-orange-500 to-amber-500 hover:from-yellow-600 hover:via-orange-600 hover:to-amber-600 disabled:from-gray-200 disabled:to-gray-300 disabled:text-gray-500 transition-all shadow-xl hover:shadow-2xl transform hover:scale-105 disabled:transform-none"
+              className="px-10 py-4 rounded-xl font-bold text-white text-lg bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 hover:from-amber-600 hover:via-orange-600 hover:to-rose-600 disabled:from-gray-200 disabled:to-gray-300 disabled:text-gray-500 transition-all shadow-xl hover:shadow-2xl transform hover:scale-105 disabled:transform-none"
             >
               {loading ? 'Revealing...' : 'Reveal Winner'}
             </button>
@@ -1301,46 +1415,51 @@ export function NumberGuessGame({
       {/* COMPLETE PHASE */}
       {gamePhase === 'complete' && gameState && (
         <div className="space-y-6">
-          <div className="p-10 bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 border-2 border-green-300 rounded-2xl text-center shadow-2xl">
+          <div className="p-10 bg-gradient-to-br from-emerald-50 via-amber-50 to-rose-50 border-2 border-emerald-200 rounded-2xl text-center shadow-2xl">
             <div className="text-7xl mb-6">🏆</div>
-            <h3 className="text-3xl font-black text-gray-900 mb-4">
-              Game Complete!
+            <h3 className="text-3xl font-black text-gray-900 mb-6">
+              Dice Duel Complete
             </h3>
-            <div className="text-2xl font-black text-green-700 mb-6">
-              Winning Number: {gameState.winning_number}
-            </div>
-            <div className="space-y-3 mb-6">
-              <div className="p-4 bg-white/70 border border-green-200 rounded-xl">
-                <p className="text-xs font-bold uppercase tracking-wide text-gray-600 mb-1">Player 1</p>
-                <p className="font-mono text-xs text-gray-700 mb-2">
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+              <div className={`p-5 rounded-2xl border-2 ${gameState.winner === gameState.player1 ? 'border-emerald-400 bg-white shadow-xl' : 'border-white/60 bg-white/70'}`}>
+                <p className="text-xs font-bold uppercase tracking-wide text-gray-600 mb-2">Player 1</p>
+                <p className="font-mono text-xs text-gray-700 mb-3">
                   {gameState.player1.slice(0, 8)}...{gameState.player1.slice(-4)}
                 </p>
-                <p className="text-sm font-semibold text-gray-800">
-                  Guess: {gameState.player1_guess ?? '—'}
-                  {player1Distance !== null ? ` (distance ${player1Distance})` : ''}
+                <div className="flex items-center justify-center gap-3 mb-3 dice-tray">
+                  <DiceFace value={gameState.player1_die1 ?? null} tone="gold" rolled />
+                  <DiceFace value={gameState.player1_die2 ?? null} tone="gold" rolled />
+                </div>
+                <p className="text-lg font-black text-gray-800">
+                  Total: {player1Total ?? '—'}
                 </p>
               </div>
 
-              <div className="p-4 bg-white/70 border border-green-200 rounded-xl">
-                <p className="text-xs font-bold uppercase tracking-wide text-gray-600 mb-1">Player 2</p>
-                <p className="font-mono text-xs text-gray-700 mb-2">
+              <div className={`p-5 rounded-2xl border-2 ${gameState.winner === gameState.player2 ? 'border-emerald-400 bg-white shadow-xl' : 'border-white/60 bg-white/70'}`}>
+                <p className="text-xs font-bold uppercase tracking-wide text-gray-600 mb-2">Player 2</p>
+                <p className="font-mono text-xs text-gray-700 mb-3">
                   {gameState.player2.slice(0, 8)}...{gameState.player2.slice(-4)}
                 </p>
-                <p className="text-sm font-semibold text-gray-800">
-                  Guess: {gameState.player2_guess ?? '—'}
-                  {player2Distance !== null ? ` (distance ${player2Distance})` : ''}
+                <div className="flex items-center justify-center gap-3 mb-3 dice-tray">
+                  <DiceFace value={gameState.player2_die1 ?? null} tone="red" rolled />
+                  <DiceFace value={gameState.player2_die2 ?? null} tone="red" rolled />
+                </div>
+                <p className="text-lg font-black text-gray-800">
+                  Total: {player2Total ?? '—'}
                 </p>
               </div>
             </div>
+
             {gameState.winner && (
-              <div className="mt-6 p-5 bg-white border-2 border-green-200 rounded-xl shadow-lg">
+              <div className="mt-6 p-5 bg-white border-2 border-emerald-200 rounded-xl shadow-lg">
                 <p className="text-xs font-bold uppercase tracking-wide text-gray-600 mb-2">Winner</p>
                 <p className="font-mono text-sm font-bold text-gray-800">
                   {gameState.winner.slice(0, 8)}...{gameState.winner.slice(-4)}
                 </p>
                 {gameState.winner === userAddress && (
-                  <p className="mt-3 text-green-700 font-black text-lg">
-                    🎉 You won!
+                  <p className="mt-3 text-emerald-700 font-black text-lg">
+                    🎉 You won the duel!
                   </p>
                 )}
               </div>
@@ -1354,6 +1473,8 @@ export function NumberGuessGame({
           </button>
         </div>
       )}
+        </div>
+      </div>
     </div>
   );
 }

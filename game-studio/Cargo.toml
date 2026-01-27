@@ -4,6 +4,7 @@ members = [
   "contracts/mock-ohloss",
   "contracts/twenty-one",
   "contracts/number-guess",
+  "contracts/dice-duel",
 ]
 
 [workspace.dependencies]

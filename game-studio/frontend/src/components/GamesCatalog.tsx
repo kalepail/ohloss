@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { TwentyOneGame } from '../games/twenty-one/TwentyOneGame';
 import { NumberGuessGame } from '../games/number-guess/NumberGuessGame';
+import { DiceDuelGame } from '../games/dice-duel/DiceDuelGame';
 import { useWallet } from '@/hooks/useWallet';
 import './GamesCatalog.css';
 
@@ -34,6 +35,19 @@ export function GamesCatalog() {
   if (selectedGame === 'number-guess') {
     return (
       <NumberGuessGame
+        userAddress={userAddress}
+        currentEpoch={1}
+        availableFP={1000000000n}
+        onBack={handleBackToGames}
+        onStandingsRefresh={() => console.log('Refresh standings')}
+        onGameComplete={() => console.log('Game complete')}
+      />
+    );
+  }
+
+  if (selectedGame === 'dice-duel') {
+    return (
+      <DiceDuelGame
         userAddress={userAddress}
         currentEpoch={1}
         availableFP={1000000000n}
@@ -137,6 +151,43 @@ export function GamesCatalog() {
                 <div className="game-detail-item">
                   <span className="detail-label">Type:</span>
                   <span className="detail-value">Guessing Game</span>
+                </div>
+              </div>
+
+              <div className="game-card-footer">
+                <div className="play-button">
+                  Play Now
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Dice Duel Card */}
+        <div
+          className="game-card-wrapper"
+          onClick={() => isConnected && handleSelectGame('dice-duel')}
+        >
+          <div className="game-card">
+            <div className="game-card-gradient"></div>
+
+            <div className="game-card-content">
+              <div className="game-emoji">🎲</div>
+              <h3 className="game-title">
+                DICE DUEL
+              </h3>
+              <p className="game-description">
+                Roll two dice each in a high-stakes casino duel. Highest total wins.
+              </p>
+
+              <div className="game-details">
+                <div className="game-detail-item">
+                  <span className="detail-label">Players:</span>
+                  <span className="detail-value">2</span>
+                </div>
+                <div className="game-detail-item">
+                  <span className="detail-label">Type:</span>
+                  <span className="detail-value">Dice Game</span>
                 </div>
               </div>
 

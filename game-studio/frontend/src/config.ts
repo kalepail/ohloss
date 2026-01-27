@@ -14,6 +14,7 @@ export const config = {
   mockOhlossId: getContractId('mock-ohloss'),
   twentyOneId: getContractId('twenty-one'),
   numberGuessId: getContractId('number-guess'),
+  diceDuelId: getContractId('dice-duel'),
 
   devPlayer1Address: import.meta.env.VITE_DEV_PLAYER1_ADDRESS || '',
   devPlayer2Address: import.meta.env.VITE_DEV_PLAYER2_ADDRESS || '',

@@ -617,16 +617,16 @@ function ExportGameSection() {
     <div className="doc-section">
       <h1 className="doc-title">Publish a Game</h1>
       <p className="doc-subtitle">
-        Package and share your game with the OHLOSS community
+        Deploy to mainnet and host your game yourself
       </p>
 
       <div className="doc-content">
         <section className="content-block">
           <h2>Overview</h2>
           <p>
-            Exporting a game creates a standalone, portable package that other developers can import
-            into their Game Studio instances. This enables community collaboration and game sharing
-            across the OHLOSS ecosystem.
+            OHLOSS does not host third-party games. To publish a game, you deploy your contract to
+            mainnet and host a standalone frontend on your own infrastructure (Vercel, Surge,
+            Cloudflare Pages, etc.). You should also publish your code in your own GitHub repository.
           </p>
         </section>
 
@@ -667,78 +667,141 @@ function ExportGameSection() {
         </section>
 
         <section className="content-block">
-          <h2>Step 3: Publish Your New Game</h2>
-          <p>Share your game with the community:</p>
-
-          <h3>Submit a Pull Request to OHLOSS</h3>
-          <p>
-            The preferred way to publish a game is to contribute it directly to the main OHLOSS repository via a pull request.
-            Start by forking the repo at{' '}
-            <a href="https://github.com/kalepail/ohloss" target="_blank" rel="noopener noreferrer">
-              https://github.com/kalepail/ohloss
-            </a>
-            , then add your game files and open a PR.
-          </p>
+          <h2>Step 3: Deploy Your Contract to Mainnet</h2>
+          <p>Deploy your game contract and point it at the mainnet OHLOSS contract.</p>
           <div className="code-block">
             <pre>
-              <code>{`# 1) Fork the OHLOSS repo on GitHub:
-#    https://github.com/kalepail/ohloss
+              <code>{`# Build optimized WASM
+bun run build
 
-# 2) Clone your fork
-git clone https://github.com/<your-username>/ohloss.git
-cd ohloss
+# Install WASM on mainnet
+stellar contract install --wasm target/wasm32v1-none/release/my_game.wasm --source <ADMIN> --network mainnet
 
-# 3) Create a feature branch
-git checkout -b add-<your-game-name>
-
-# 4) Add your game files (contract + frontend + docs) following existing patterns in the repo
-#    Example (adjust paths to match the OHLOSS repo structure):
-#    cp -r /path/to/your-game/contracts/<your-game> contracts/
-#    cp -r /path/to/your-game/frontend/src/games/<your-game> frontend/src/games/
-
-# 5) Commit and push
-git add .
-git commit -m "Add <your-game-name> game"
-git push -u origin add-<your-game-name>
-
-# 6) Open a Pull Request from your fork/branch to kalepail/ohloss:main`}</code>
+# Deploy + initialize with OHLOSS mainnet contract ID
+stellar contract deploy --wasm-hash <WASM_HASH> --source <ADMIN> --network mainnet -- \\
+  --admin <ADMIN_ADDRESS> --ohloss <OHLOSS_MAINNET_CONTRACT_ID>`}</code>
             </pre>
           </div>
           <div className="info-box">
             <div className="info-icon">✅</div>
             <div>
-              <strong>Include in your PR description</strong>
+              <strong>Use the correct OHLOSS mainnet contract ID</strong>
               <ul>
-                <li>Game name + short description</li>
-                <li>Rules / win condition and number of players</li>
-                <li>How to run/test it (contract tests + frontend)</li>
-                <li>Any special requirements or security considerations</li>
+                <li>See <code>CHITSHEET.md</code> for the current mainnet OHLOSS address</li>
+                <li>Keep the game contract ID handy for frontend configuration</li>
+                <li>Mainnet requires a funded admin keypair</li>
               </ul>
             </div>
           </div>
 
-          <h3>GitHub Release</h3>
+          <h3>Register Your Game (Whitelist)</h3>
+          <p>
+            The mainnet OHLOSS contract only accepts outcomes from approved games. The OHLOSS admin
+            must call <code>add_game</code> with your game contract ID and developer address. Share
+            these details with the maintainer to get whitelisted.
+          </p>
           <div className="code-block">
             <pre>
-              <code>{`# Create a new repository for your game
-git init
-git add .
-git commit -m "Initial release v1.0.0"
-git remote add origin https://github.com/yourusername/ohloss.git
-git push -u origin main
-
-# Create a release with your .tar.gz and .zip files`}</code>
+              <code>{`# (Admin-only) Register your game on mainnet OHLOSS
+stellar contract invoke --id <OHLOSS_MAINNET_CONTRACT_ID> --source <OHLOSS_ADMIN> --network mainnet -- \\
+  add_game --game_id <YOUR_GAME_CONTRACT_ID> --developer <YOUR_DEVELOPER_ADDRESS>`}</code>
             </pre>
           </div>
         </section>
 
         <section className="content-block">
-          <h2>Step 8: Community Guidelines</h2>
+          <h2>Step 4: Extract a Standalone Frontend</h2>
+          <p>
+            Ship only your game UI in production. The easiest path is to copy the Game Studio
+            frontend into a new repo and wire it to a single game component.
+          </p>
+          <div className="code-block">
+            <pre>
+              <code>{`# From the repo root
+mkdir ../my-game-frontend
+rsync -av --exclude node_modules --exclude dist game-studio/frontend/ ../my-game-frontend/
+cd ../my-game-frontend
+
+# Optional: remove unused games and docs to slim down the build
+# rm -rf src/pages src/components/GamesCatalog.tsx src/games/other-games`}</code>
+            </pre>
+          </div>
+          <p>Update <code>src/App.tsx</code> to render just your game:</p>
+          <div className="code-block">
+            <pre>
+              <code>{`import { Layout } from './components/Layout';
+import { useWallet } from './hooks/useWallet';
+import { MyGame } from './games/my-game/MyGame';
+
+export default function App() {
+  const { publicKey, isConnected, connectDev } = useWallet();
+  const userAddress = publicKey ?? '';
+
+  return (
+    <Layout>
+      {!isConnected ? (
+        <button onClick={() => connectDev(1)}>Connect Wallet</button>
+      ) : (
+        <MyGame
+          userAddress={userAddress}
+          currentEpoch={1}
+          availableFP={1000000000n}
+          onBack={() => {}}
+          onStandingsRefresh={() => {}}
+          onGameComplete={() => {}}
+        />
+      )}
+    </Layout>
+  );
+}`}</code>
+            </pre>
+          </div>
+          <p>
+            The dev wallet is for local testing only. For production, replace it with a real wallet
+            integration (Freighter, passkeys, or your own signer).
+          </p>
+        </section>
+
+        <section className="content-block">
+          <h2>Step 5: Configure Mainnet Environment</h2>
+          <p>Create a <code>.env</code> in your standalone frontend:</p>
+          <div className="code-block">
+            <pre>
+              <code>{`VITE_SOROBAN_RPC_URL=https://soroban-mainnet.stellar.org
+VITE_NETWORK_PASSPHRASE=Public Global Stellar Network ; September 2015
+VITE_MY_GAME_CONTRACT_ID=<YOUR_MAINNET_CONTRACT_ID>`}</code>
+            </pre>
+          </div>
+        </section>
+
+        <section className="content-block">
+          <h2>Step 6: Deploy the Frontend</h2>
+          <p>Build the site and deploy to any static host.</p>
+          <div className="code-block">
+            <pre>
+              <code>{`bun install
+bun run build
+
+# Vercel
+vercel --prod
+
+# Surge
+npx surge dist
+
+# Cloudflare Pages
+wrangler pages deploy dist`}</code>
+            </pre>
+          </div>
+        </section>
+
+        <section className="content-block">
+          <h2>Step 7: Community Guidelines</h2>
           <p>When sharing your game, follow these best practices:</p>
           <ul>
             <li>Provide clear instructions with game rules</li>
             <li>Include unit tests for contract</li>
             <li>Include any security considerations or requirements</li>
+            <li>Publish the code in your own GitHub repo</li>
           </ul>
         </section>
 
@@ -747,8 +810,10 @@ git push -u origin main
           <ul>
             <li>✅ Game builds without errors</li>
             <li>✅ All tests pass</li>
-            <li>✅ Frontend component is self-contained</li>
-            <li>✅ Tested in Game Studio</li>
+            <li>✅ Mainnet contract deployed</li>
+            <li>✅ Frontend is standalone and configured for mainnet</li>
+            <li>✅ Hosted on your chosen platform</li>
+            <li>✅ Code published in your own GitHub repo</li>
           </ul>
         </section>
 
@@ -759,16 +824,17 @@ git push -u origin main
             <li>Use semantic versioning (MAJOR.MINOR.PATCH)</li>
             <li>Document breaking changes in release notes</li>
             <li>Keep dependencies up to date</li>
-            <li>Respond to community issues and pull requests</li>
+            <li>Respond to community issues and contributions in your repo</li>
             <li>Test compatibility with new Soroban SDK versions</li>
           </ul>
         </section>
 
         <section className="content-block">
-          <h2>Review and Mainnet Availability</h2>
+          <h2>Mainnet Availability</h2>
           <p>
-            Games are included at the discretion of the community, and review/assessment may take some time.
-            For mainnet availability, all games must be whitelisted on the mainnet OHLOSS contract before they can be used.
+            For mainnet gameplay, your game contract must be registered on the mainnet OHLOSS contract
+            by the admin. If you are not the admin, share your contract ID and developer address to
+            request approval.
           </p>
         </section>
       </div>

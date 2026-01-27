@@ -18,6 +18,7 @@ console.log("🚀 Deploying contracts to Stellar testnet...\n");
 const NETWORK = 'testnet';
 const RPC_URL = 'https://soroban-testnet.stellar.org';
 const NETWORK_PASSPHRASE = 'Test SDF Network ; September 2015';
+const EXISTING_OHLOSS_TESTNET_CONTRACT_ID = 'CBRA7Z7RTHYGZVI7ZCW5OJLL6P7E53PQ5YOAM7CCDBKRELW72D4V4IM3';
 
 async function testnetAccountExists(address: string): Promise<boolean> {
   const res = await fetch(`https://horizon-testnet.stellar.org/accounts/${address}`, { method: 'GET' });
@@ -177,17 +178,20 @@ if (!mock) {
   process.exit(1);
 }
 
-console.log(`Deploying ${mock.packageName}...`);
-let mockOhlossId = "";
-try {
-  const result = await $`stellar contract deploy --wasm ${mock.wasmPath} --source admin --network ${NETWORK}`.text();
-  mockOhlossId = result.trim();
-  deployed[mock.packageName] = mockOhlossId;
-  console.log(`✅ ${mock.packageName} deployed: ${mockOhlossId}\n`);
-} catch (error) {
-  console.error(`❌ Failed to deploy ${mock.packageName}:`, error);
-  process.exit(1);
-}
+let mockOhlossId = EXISTING_OHLOSS_TESTNET_CONTRACT_ID;
+deployed[mock.packageName] = mockOhlossId;
+console.log(`✅ Using existing ${mock.packageName} on testnet: ${mockOhlossId}\n`);
+// NOTE: Keep this block commented so we can re-enable mock deployment later if needed.
+// console.log(`Deploying ${mock.packageName}...`);
+// try {
+//   const result = await $`stellar contract deploy --wasm ${mock.wasmPath} --source admin --network ${NETWORK}`.text();
+//   mockOhlossId = result.trim();
+//   deployed[mock.packageName] = mockOhlossId;
+//   console.log(`✅ ${mock.packageName} deployed: ${mockOhlossId}\n`);
+// } catch (error) {
+//   console.error(`❌ Failed to deploy ${mock.packageName}:`, error);
+//   process.exit(1);
+// }
 
 for (const contract of contracts) {
   if (contract.isMockOhloss) continue;

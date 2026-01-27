@@ -740,9 +740,8 @@ export function TwentyOneGame({
             onClick={() => {
               if (gameState?.winner) {
                 onGameComplete();
-              } else {
-                onBack();
               }
+              onBack();
             }}
             className="px-6 py-3 rounded-xl bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white font-bold transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
           >
