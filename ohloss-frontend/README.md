@@ -55,7 +55,7 @@ ohloss-frontend/
 │   ├── stores/          # Zustand stores
 │   └── lib/             # Services and utilities
 ├── worker/              # Cloudflare Worker (embedded API)
-├── CLAUDE.md            # AI assistant guide
+├── AGENTS.md            # AI assistant guide
 └── GAPS.md              # Implementation gaps tracking
 ```
 

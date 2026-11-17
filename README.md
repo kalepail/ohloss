@@ -63,7 +63,7 @@ ohloss/
 ├── api-worker/                   # Cloudflare Worker API proxy
 ├── fp_simulations/               # Python multiplier simulations
 ├── docs/                         # Technical documentation
-├── CLAUDE.md                     # AI assistant development guide
+├── AGENTS.md                     # AI assistant development guide
 ├── AGENTS.md                     # MCP tools and agent reference
 ├── CHITSHEET.md                  # Contract addresses and deployment commands
 ├── Cargo.toml                    # Workspace configuration
@@ -318,7 +318,7 @@ See: [game-studio/README.md](game-studio/README.md)
 - **[PLAN.md](docs/PLAN.md)** - Detailed technical specification
 - **[SECURITY.md](docs/SECURITY.md)** - Security analysis and attack mitigation
 - **[PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md)** - Production deployment checklist
-- **[CLAUDE.md](CLAUDE.md)** - AI assistant development guide
+- **[AGENTS.md](AGENTS.md)** - AI assistant development guide
 - **[AGENTS.md](AGENTS.md)** - MCP tools and agent reference
 - **[OG_PLAN.md](docs/OG_PLAN.md)** - Original requirements
 - **[CHITSHEET.md](CHITSHEET.md)** - Contract addresses and deployment commands

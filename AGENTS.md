@@ -1,246 +1,347 @@
-# AGENTS.md - Available Tooling Reference
+# AGENTS.md
 
-This document lists all available MCP tools and Task agents that can be used during development.
+Guidance for AI coding agents working in this repository.
 
-## Quick Start
-- Reach for a Task agent when a problem spans multiple files or needs research; otherwise try local tooling first (`rg`, tests, docs).
-- Skim the "Recommended Workflow" section before new feature work to avoid missing required setup steps.
-- Use `context7` for up-to-date library documentation instead of relying on cached knowledge.
-- Use `perplexity` for researching latest versions and best practices.
+## Project Overview
+
+Ohloss is a faction-based competitive gaming protocol on Stellar's Soroban platform. Players deposit assets into a yield-generating vault (via Blend protocol), earn faction points based on deposit amount and time, and compete in games by wagering these points. Every 4-day epoch, the winning faction shares the accumulated yield (BLND converted to USDC).
+
+## Key Technologies
+
+- **Soroban Smart Contracts** (Rust): Core game logic on Stellar blockchain
+  - **soroban-sdk**: Version 23.1.0 (always research for latest stable before updating)
+  - **soroban-fixed-point-math**: Custom fork from github.com/kalepail/soroban-fixed-point-math
+- **Bun**: JavaScript runtime for testing and tooling (NOT Node.js)
+- **TypeScript**: Type-safe contract bindings and integration tests
 
 ## Dependency Management
 
 **CRITICAL: Always research package versions before adding or updating dependencies.**
 
-### Current Core Dependencies
-- **soroban-sdk**: 23.1.0
-- **soroban-fixed-point-math**: git fork from github.com/kalepail/soroban-fixed-point-math
+Current core dependencies:
+```toml
+[workspace.dependencies]
+soroban-sdk = "23.1.0"
+soroban-fixed-point-math = { git = "https://github.com/kalepail/soroban-fixed-point-math" }
+```
 
-### Before Adding Dependencies:
-1. Use perplexity or WebSearch to find the latest stable version
-2. Check crates.io for compatibility information
-3. Ensure the new dependency uses soroban-sdk 23.1.0
-4. Add to workspace dependencies in root Cargo.toml
-5. Use `{ workspace = true }` in contract Cargo.toml
+Before adding/updating:
+1. Find the latest stable version (perplexity or WebSearch, e.g. "soroban-sdk latest version 2025"; check crates.io and release notes/migration guides for breaking changes).
+2. Verify compatibility: every dependency must use the same soroban-sdk version (23.1.0); check for known issues or deprecations.
+3. Add it to `[workspace.dependencies]` in the root `Cargo.toml` and use `{ workspace = true }` in the contract `Cargo.toml`.
 
-### Example:
+## Build and Test Commands
+
+### Rust Contract
+
+**Important:** Use `wasm32v1-none` target (Rust 1.84.0+) for stability. This locks to WebAssembly 1.0 features and prevents breaking changes from Rust updates.
+
 ```bash
-# Research the package first
-perplexity: search("soroban-sdk latest version compatibility 2025")
+# Install the wasm32v1-none target (one-time setup)
+rustup target add wasm32v1-none
 
-# Get library documentation
-context7: resolve-library-id("soroban-sdk")
-context7: get-library-docs(libraryId, topic="storage")
+# Build the contract (RECOMMENDED - uses stellar CLI)
+cd contracts/ohloss
+stellar contract build
+
+# Output location: target/wasm32v1-none/release/ohloss.wasm
+
+# Alternative: Manual build with cargo
+cargo build --target wasm32v1-none --release
+
+# Run Rust unit tests
+cargo test
+
+# Optimize WASM (usually not needed - stellar contract build optimizes automatically)
+stellar contract optimize --wasm target/wasm32v1-none/release/ohloss.wasm
 ```
 
-## Task Agents
+**Why wasm32v1-none?**
+- Locks to WebAssembly 1.0 (no unstable features)
+- Prevents compatibility issues with Safari and older browsers
+- Official recommendation from Stellar as of 2025
+- `wasm32-unknown-unknown` is now considered a "moving target"
 
-Launch specialized agents for complex, multi-step tasks using the Task tool.
+### TypeScript Tests with Bun
 
-### Explore Agent
-**Best for:** Searching codebases, finding patterns, understanding structure
+```bash
+# Install dependencies (use Bun, NOT npm/yarn/pnpm)
+cd bunt
+bun install
 
-**When to use:**
-- Finding files by pattern: "Find all .rs files in src/"
-- Searching code: "Find all uses of fixed_mul_floor"
-- Understanding structure: "How does fee-vault-v2 handle deposits?"
-- If a quick `rg` search will do, try that first and jot down the query in case you need to escalate to Explore later.
+# Run tests
+bun test
 
-**Thoroughness levels:**
-- `quick` - Basic keyword search
-- `medium` - Moderate exploration
-- `very thorough` - Comprehensive analysis
+# Run specific test file
+bun test test/deposit.test.ts
 
-**Example:**
-```
-Use Explore agent with "medium" thoroughness to find how Soroswap router handles swap operations
-```
+# Watch mode
+bun test --watch
 
-### General Purpose Agent
-**Best for:** Complex multi-step tasks, research, code generation
-
-**When to use:**
-- Multi-step research
-- Code refactoring
-- Test generation
-- Answering complex questions requiring multiple searches
-
-**Example:**
-```
-Use general purpose agent to research Soroban contract upgrade patterns and provide implementation examples
+# Generate TypeScript bindings from contract
+stellar contract bindings typescript \
+  --wasm ../contracts/ohloss/target/wasm32v1-none/release/ohloss.wasm \
+  --output-dir ./bindings/ohloss \
+  --contract-id <CONTRACT_ID>
 ```
 
-### Plan Agent
-**Best for:** Planning implementation approaches before coding
+### Deployment
 
-**When to use:**
-- Breaking down complex features
-- Exploring multiple implementation options
-- Planning architecture decisions
-
-## MCP Tools
-
-### context7
-**Purpose:** Get up-to-date library documentation and code examples
-
-**Key operations:**
-- `resolve-library-id(libraryName)` - Find library ID for documentation
-- `get-library-docs(libraryId, topic?, mode?)` - Fetch documentation
-  - `mode: "code"` - API references and code examples (default)
-  - `mode: "info"` - Conceptual guides and architecture
-
-**Use for:**
-- Understanding soroban-sdk APIs
-- Learning library patterns and best practices
-- Getting current code examples
-
-**Example:**
-```
-context7: resolve-library-id("stellar-sdk")
-context7: get-library-docs("/stellar/js-stellar-sdk", topic="contract")
+```bash
+# Deploy to testnet
+stellar contract deploy \
+  --wasm target/wasm32v1-none/release/ohloss.wasm \
+  --source admin \
+  --network testnet
 ```
 
-### github
-**Purpose:** Interact with GitHub repositories
+## Architecture
 
-**Key operations:**
-- `get_file_contents(owner, repo, path)` - Read file contents
-- `search_code(query)` - Search across repos (e.g., "language:rust soroban")
-- `list_branches(owner, repo)` - List branches
-- `list_commits(owner, repo)` - List commits
-- Create/read issues and PRs
+### Core Concepts
 
-**Use for:**
-- Studying fee-vault-v2 source code
-- Understanding Soroswap router implementation
-- Finding Soroban contract examples
-- Searching for specific patterns in Stellar repos
+1. **Factions (3)**: WholeNoodle (0), PointyStick (1), SpecialRock (2)
+2. **Epochs**: 4-day cycles (345,600 seconds)
+3. **Faction Points (fp)**: Player scoring mechanism with multipliers
+   - Amount multiplier: Asymptotic curve toward $1,000 USD deposit
+   - Time multiplier: Asymptotic curve toward 35 days holding
+   - Reset penalty: >50% net withdrawal between epochs resets time to 0
+   - **Cross-Epoch Model**: FP calculated once at first game of epoch based on vault balance
 
-**Example:**
+### Architecture Model: Cross-Epoch Balance Tracking
+
+**Key Design Principle**: Players interact directly with fee-vault-v2 for deposits/withdrawals. Ohloss queries balances and enforces game rules at epoch boundaries.
+
+**Flow:**
+1. Player deposits to fee-vault-v2 directly (no intermediate Ohloss deposit call)
+2. Player plays first game of Epoch N → Ohloss queries vault balance
+3. Balance compared to last epoch → If >50% withdrawal, reset time multiplier
+4. FP calculated based on current balance + multipliers
+5. FP remains valid for entire epoch (even if player withdraws mid-epoch)
+6. Epoch N+1 starts → Fresh calculation at first game
+
+**Benefits:**
+- Simpler player flow (direct vault interaction)
+- Reduced storage (~32 bytes per active player)
+- Rewards sustained balances across many epochs
+- Accepts mid-epoch capital flexibility
+
+### Contract Structure
+
 ```
-get_file_contents("script3", "fee-vault-v2", "src/vault.rs")
-search_code("soroban-sdk Map usage language:rust")
-```
-
-### deepwiki
-**Purpose:** Query AI-generated documentation about GitHub repositories
-
-**Key operations:**
-- `read_wiki_structure(repoName)` - Get documentation topics
-- `read_wiki_contents(repoName)` - View full documentation
-- `ask_question(repoName, question)` - Ask specific questions
-
-**Use for:**
-- Understanding project architecture
-- Getting high-level explanations
-- Learning usage patterns from repos
-
-**Example:**
-```
-ask_question("script3/fee-vault-v2", "How do I integrate with a Blend pool?")
-read_wiki_structure("soroswap/core")
-```
-
-### perplexity
-**Purpose:** Web search and research with AI analysis
-
-**Key operations:**
-- `search(query)` - Quick search for straightforward questions
-- `reason(query)` - Complex multi-step reasoning
-- `deep_research(query, focus_areas?)` - In-depth research and reports
-
-**Use for:**
-- Finding latest Soroban documentation
-- Researching package versions and compatibility
-- Troubleshooting specific errors
-- Getting up-to-date best practices
-
-**Example:**
-```
-perplexity: search("soroban-sdk 23.1 breaking changes 2025")
-perplexity: reason("What are the best practices for Soroban storage optimization?")
+contracts/ohloss/src/
+├── lib.rs              # Main contract entry point (27 exported functions)
+├── types.rs            # Shared data structures and enums
+├── storage.rs          # Storage utilities and TTL management
+├── vault.rs            # Vault balance queries and cross-epoch comparison
+├── faction.rs          # Faction management
+├── faction_points.rs   # FP calculation with multipliers
+├── game.rs             # Game lifecycle (start/end) with epoch initialization
+├── epoch.rs            # Epoch cycling and management
+├── rewards.rs          # Reward distribution
+├── events.rs           # Event definitions (#[contractevent])
+├── errors.rs           # Error definitions
+├── fee_vault_v2.rs     # Fee vault client interface
+├── router.rs           # Soroswap router client interface
+└── tests/              # Comprehensive test suite (21 test files)
 ```
 
-### cloudflare
-**Purpose:** Search Cloudflare documentation
+**Note**: `vault.rs` no longer contains deposit/withdraw methods. It provides:
+- `get_vault_balance()` - Query player balance from fee-vault-v2
+- `check_cross_epoch_withdrawal_reset()` - Compare balances between epochs
 
-**Key operations:**
-- `search_cloudflare_documentation(query)` - Search CF docs
+### External Dependencies
 
-**Use for:**
-- Workers deployment (api-worker)
-- Pages deployment (ohloss-frontend)
-- D1, R2, KV documentation
+The contract integrates with three external Soroban contracts:
 
-**Relevant for this project** - ohloss-frontend and api-worker deploy to Cloudflare.
+1. **fee-vault-v2** (https://github.com/script3/fee-vault-v2)
+   - Yield-generating vault for BLND token
+   - **Players interact directly**: Call `deposit()` and `withdraw()` on fee-vault-v2
+   - **Ohloss queries balances**: `get_underlying_tokens(player)` at first game of epoch
+   - **Admin role**: Ohloss withdraws accumulated fees via `admin_withdraw()`
 
-### WebSearch / WebFetch
-**Purpose:** Direct web search and page fetching
+2. **Soroswap Router** (https://github.com/soroswap/core)
+   - DEX for BLND → USDC conversion during epoch cycling
+   - Method: `swap_exact_tokens_for_tokens()`
 
-**Use for:**
-- Reading specific documentation pages
-- Fetching blog posts or tutorials
-- Getting content from known URLs
+3. **soroban-fixed-point-math** (https://github.com/script3/soroban-fixed-point-math)
+   - Safe fixed-point arithmetic library
+   - Methods: `fixed_mul_floor()`, `fixed_mul_ceil()`, `fixed_div_floor()`
 
-**Example:**
-```
-WebFetch: https://developers.stellar.org/docs/build/smart-contracts/overview
-```
+### Data Structures
 
-## Tool Selection Guide
+Key storage types (defined in contracts/ohloss/src/types.rs):
 
-### For researching Soroban/Stellar patterns:
-1. **github** - Read source of fee-vault-v2, soroswap, soroban-examples
-2. **context7** - Get library documentation with code examples
-3. **deepwiki** - Ask questions about specific repos
-4. **perplexity** - Find latest best practices and discussions
-
-### For understanding dependencies:
-1. **context7** - Primary tool for library documentation
-2. **github** - View source and tests
-3. **deepwiki** - High-level documentation
-
-### For finding patterns/examples:
-1. **Explore agent** - Search through multiple repos
-2. **github search_code** - Find specific code patterns
-3. **perplexity** - Find tutorials and explanations
-
-### For complex research:
-1. **General Purpose agent** - Multi-step research tasks
-2. **perplexity deep_research** - Comprehensive analysis
-
-## Recommended Workflow
-
-### Phase 1: Understanding Dependencies
-```
-1. context7: resolve-library-id("stellar-sdk")
-2. context7: get-library-docs(libraryId, mode="info")
-3. github: get_file_contents("script3", "fee-vault-v2", "README.md")
-4. github: get_file_contents("soroswap", "core", "README.md")
+**Player (Persistent across epochs):**
+```rust
+pub struct Player {
+    pub selected_faction: u32,       // Persistent faction preference
+    pub deposit_timestamp: u64,      // Time multiplier tracking
+    pub last_epoch_balance: i128,    // For cross-epoch comparison
+}
 ```
 
-### Phase 2: Studying Integration Patterns
-```
-1. Explore agent: "Find how fee-vault-v2 handles deposits" (medium thoroughness)
-2. github: get_file_contents("script3", "fee-vault-v2", "src/vault.rs")
-3. deepwiki: ask_question("script3/fee-vault-v2", "What are the key integration points?")
-```
-
-### Phase 3: Implementing Features
-```
-1. context7: get-library-docs for API reference
-2. github search_code: "soroban-sdk Map insert language:rust"
-3. perplexity: search for specific error messages or patterns
+**EpochPlayer (Per-epoch state):**
+```rust
+pub struct EpochPlayer {
+    pub epoch_faction: Option<u32>,      // Locked faction for this epoch
+    pub initial_balance: i128,           // Vault snapshot at first game
+    pub available_fp: i128,              // Spendable FP
+    pub locked_fp: i128,                 // FP locked in active games
+    pub total_fp_contributed: i128,      // Reward distribution basis
+}
 ```
 
-### Phase 4: Problem Solving
-```
-1. perplexity: search("Soroban [specific error or pattern]")
-2. Explore agent: "Find examples of [pattern] in soroban-examples"
-3. General Purpose agent: "Research solutions for [complex problem]"
+**Other types:**
+- `EpochInfo`: Epoch metadata and standings
+- `GameSession`: Game session tracking
+- `GameOutcome`: Verified game results
+
+**Key Changes in Cross-Epoch Architecture:**
+- Removed `Player.total_deposited` (query vault instead)
+- Removed `EpochPlayer.withdrawn_this_epoch` (no within-epoch tracking)
+- Renamed `initial_epoch_balance` → `initial_balance` (clearer naming)
+- Added `Player.last_epoch_balance` (for cross-epoch withdrawal detection)
+
+Storage keys use enum-based typing for collision-free access:
+```rust
+pub enum DataKey {
+    Player(Address),
+    EpochPlayer(u32, Address),
+    Epoch(u32),
+    Session(BytesN<32>),
+}
 ```
 
-## Quick Reference
+## Soroban Development Rules
+
+### Must Use
+
+- `#![no_std]` at the top of every module
+- `soroban_sdk` types: `Address`, `Env`, `Map`, `Vec`, `Symbol`, `BytesN`
+- `symbol_short!()` macro for storage keys (NOT strings)
+- References (`&env`, `&address`) to avoid cloning
+- `soroban-fixed-point-math` for ALL multiplier calculations
+- Checked arithmetic or `.expect()` on all math operations
+- Event emissions for all state changes
+
+### Must NOT Use
+
+- Standard library types (`std::vec::Vec`, `std::collections::HashMap`, `String`)
+- Unchecked arithmetic (prevents overflow exploits)
+- `String` type (use `Symbol` for identifiers)
+- Unbounded loops or recursion
+
+### Fixed-Point Math Pattern
+
+```rust
+use soroban_fixed_point_math::FixedPoint;
+
+const SCALAR_7: i128 = 10_000_000; // 7 decimal places
+
+// Calculate: base × amount_mult × time_mult
+let temp = base_amount
+    .fixed_mul_floor(amount_mult, SCALAR_7)
+    .expect("amount multiplier overflow");
+let result = temp
+    .fixed_mul_floor(time_mult, SCALAR_7)
+    .expect("time multiplier overflow");
+```
+
+## Critical Invariants
+
+The contract MUST maintain these invariants at all times:
+
+1. **FP Conservation**: `sum(all_players.available_fp + locked_fp) = total_fp_in_system`
+2. **Balance Consistency**: FP calculated from vault balances at epoch boundaries
+   - `EpochPlayer.initial_balance` matches vault balance at first game of epoch
+   - Players may deposit/withdraw mid-epoch without FP recalculation
+3. **Faction Immutability**: Once locked in epoch, faction cannot change
+4. **Reward Distribution**: `sum(claimed_rewards) <= epoch.reward_pool`
+5. **Session Uniqueness**: Each `session_id` is unique and consumed after game end
+6. **Cross-Epoch Reset**: >50% net withdrawal between epochs triggers time multiplier reset
+
+## Security Considerations
+
+- **Flash Deposit Attack**: Mitigated by time multiplier (starts at 1.0x)
+- **Epoch Boundary Gaming**: Cross-epoch comparison allows timing attacks, accepted trade-off
+  - Players can time deposits/withdrawals around epoch boundaries
+  - FP remains valid for entire epoch even after mid-epoch withdrawals
+  - Design prioritizes sustained balances over micro-management
+- **Faction Switching**: Faction locks on first game of epoch
+- **Integer Overflow**: Use checked arithmetic everywhere
+- **Replay Attacks**: Session IDs are unique and single-use
+- **Oracle Trust**: Multi-sig oracle for Phase 1-2, migrate to ZK proofs later
+- **Direct Vault Interaction**: Players who deposit/withdraw via vault directly (bypassing UI)
+  - Balance correctly tracked via queries at first game
+  - No security issue, just unconventional UX
+
+## Bun-Specific Patterns
+
+This project uses **Bun** (NOT Node.js, npm, yarn, or pnpm; Bun is also faster for TypeScript tests): `bun index.ts`, `bun test`, `bun install`, `bun run <script>`. Bun auto-loads `.env` (no dotenv), transpiles TypeScript, bundles with `bun build`, and has built-in WebSocket support.
+
+## TypeScript Contract Integration
+
+Regenerate type-safe bindings after every contract change (use them instead of hand-building transactions):
+
+```bash
+stellar contract bindings typescript \
+  --wasm target/wasm32v1-none/release/ohloss.wasm \
+  --output-dir ./bindings/ohloss \
+  --contract-id <CONTRACT_ID>
+```
+
+Use the generated bindings:
+
+```typescript
+import { Contract } from './bindings/ohloss';
+
+const contract = new Contract({
+  contractId: 'C...',
+  networkPassphrase: 'Public Global Stellar Network ; September 2015',
+  rpcUrl: 'https://rpc.lightsail.network',
+});
+
+// Type-safe contract calls
+const player = await contract.get_player({ player: userAddress });
+const epochPlayer = await contract.get_epoch_player({ player: userAddress, epoch: 1 });
+```
+
+## Implementation Status
+
+**Current state: Live on Mainnet**
+
+### Completed
+- Contract initialization and admin functions
+- Fee-vault integration (players deposit directly to fee-vault-v2)
+- Faction selection and epoch locking
+- FP calculation with asymptotic multipliers
+- Game registry (add/remove/is_game)
+- Game lifecycle (start/end with multi-sig authorization)
+- Epoch cycling with BLND → USDC conversion
+- Reward distribution and claiming
+- Emergency pause mechanism
+- TTL storage management
+
+### In Progress
+- Security audit (external)
+- Multiplier system optimization (see fp_simulations/RECOMMENDATIONS.md)
+
+## Tooling and Research Workflow
+
+Prefer local tooling first (`rg`, `cargo test`, docs on disk); escalate to MCP tools or Task agents when a problem spans multiple files or needs research.
+
+MCP tools:
+- **context7**: current library docs/examples instead of cached knowledge or raw source. `resolve-library-id("stellar-sdk")`, then `get-library-docs("/stellar/js-stellar-sdk", topic="contract", mode="code"|"info")` (`code` = API refs/examples, `info` = conceptual guides).
+- **github**: read external contract source and find patterns. `get_file_contents("script3", "fee-vault-v2", "src/vault.rs")`, `search_code("soroban-sdk Map usage language:rust")`, `list_commits`, `list_branches`, issues/PRs.
+- **deepwiki**: high-level repo architecture. `ask_question("script3/fee-vault-v2", "How do I integrate with a Blend pool?")`, `read_wiki_structure`, `read_wiki_contents`.
+- **perplexity**: latest versions, best practices, debugging. `search`, `reason`, `deep_research`.
+- **cloudflare**: `search_cloudflare_documentation` for Workers/Pages/D1/R2/KV (ohloss-frontend and api-worker deploy to Cloudflare).
+- **WebSearch / WebFetch**: specific doc pages, e.g. https://developers.stellar.org/docs/build/smart-contracts/overview.
+
+Task agents:
+- **Explore** (thoroughness `quick` / `medium` (default) / `very thorough`): multi-file searches and pattern finding; try a quick `rg` first.
+- **General Purpose**: multi-step research, refactoring, test generation, combining tools.
+- **Plan**: break down features and choose an approach before coding.
 
 | Task | Primary Tool | Secondary Tool |
 |------|-------------|----------------|
@@ -248,28 +349,30 @@ WebFetch: https://developers.stellar.org/docs/build/smart-contracts/overview
 | Study fee-vault-v2 | github | deepwiki |
 | Find code patterns | Explore agent | github search_code |
 | Latest best practices | perplexity | WebSearch |
-| Complex research | General Purpose agent | perplexity deep_research |
-| Multi-file code search | Explore agent | - |
-| Specific repo questions | deepwiki | github |
+| Complex multi-step research | General Purpose agent | perplexity deep_research |
+| Architecture / repo questions | deepwiki | github |
 | Cloudflare deployment | cloudflare | - |
 
-## Key Repos to Reference
+Suggested flow: understand dependencies (context7 docs, READMEs of fee-vault-v2 and soroswap/core via github) -> study integration patterns (Explore + github + deepwiki) -> implement (context7 API reference, github search_code) -> troubleshoot (perplexity for errors, Explore for examples, General Purpose for hard problems).
 
+Key repositories:
 - **stellar/js-stellar-sdk** - TypeScript SDK
-- **stellar/soroban-examples** - Official examples
+- **stellar/soroban-examples** - Official example contracts
 - **script3/fee-vault-v2** - Vault integration patterns
-- **soroswap/core** - DEX integration
-- **kalepail/soroban-fixed-point-math** - Safe math
+- **soroswap/core** - DEX integration reference
+- **kalepail/soroban-fixed-point-math** - Safe arithmetic patterns
 
-## Notes
+## Key Documentation
 
-- Default to local tools (`rg`, `cargo test`, docs on disk) before escalating to agents; it keeps the fast feedback loop tight.
-- Use Explore agent for multi-file searches (more efficient than manual)
-- Use github search_code for finding specific patterns across repos
-- Use perplexity for latest information and troubleshooting
-- Use context7 for library documentation instead of reading raw source
-- General Purpose agent can combine multiple tools automatically
-- Use Bun for fast TypeScript tests (faster than Node.js)
-- Regenerate TypeScript bindings after contract changes
-- Use type-safe contract bindings instead of manual transaction building
-- Cloudflare deployments: use `cloudflare` MCP tool for Workers/Pages docs
+- Detailed technical plan and contract method specs: `docs/PLAN.md`
+- Original requirements: `docs/OG_PLAN.md`
+- Security audit: `docs/SECURITY_AUDIT.md`
+- Production readiness: `docs/PRODUCTION_READINESS.md`
+- Contract addresses: `CHITSHEET.md` (root)
+
+## Important Notes
+
+- All FP calculations use 7-decimal fixed-point math (SCALAR_7 = 10_000_000)
+- Game outcome verification is oracle-based initially, will migrate to ZK proofs
+- Epoch duration is configurable but defaults to 4 days (345,600 seconds)
+- USDC uses 7 decimals on Stellar (NOT 6 like on Ethereum)

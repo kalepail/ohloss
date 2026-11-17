@@ -31,7 +31,7 @@ Current status: **61/61 tests passing**
 
 See the root directory for comprehensive documentation:
 - `README.md` - Project overview and quick start
-- `CLAUDE.md` - Development guide and architecture
+- `AGENTS.md` - Development guide and architecture
 - `docs/PLAN.md` - Detailed technical specification
 - `docs/SECURITY.md` - Security analysis
 - `docs/PRODUCTION_READINESS.md` - Deployment checklist
