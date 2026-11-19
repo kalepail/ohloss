@@ -288,55 +288,54 @@ stellar contract invoke --id <OHLOSS_MAINNET_CONTRACT_ID> --source <OHLOSS_ADMIN
   add_game --game_id <YOUR_GAME_CONTRACT_ID> --developer <YOUR_DEVELOPER_ADDRESS>
 ```
 
-### Step 3: Extract a Standalone Frontend
-Copy the Game Studio frontend into a new repo and render only your game.
+### Step 3: Publish a Standalone Frontend
+Use the built-in publish command to create a production-ready frontend that renders only your game.
 ```bash
-# From the repo root
-mkdir ../my-game-frontend
-rsync -av --exclude node_modules --exclude dist game-studio/frontend/ ../my-game-frontend/
-cd ../my-game-frontend
+# From game-studio/
+bun run publish my-game
+
+# Optional: choose a custom output directory
+bun run publish my-game --out ../my-game-frontend
 ```
 
-Update `src/App.tsx` to render just your game:
-```tsx
-import { Layout } from './components/Layout';
-import { useWallet } from './hooks/useWallet';
-import { MyGame } from './games/my-game/MyGame';
+This will:
+- Copy the Game Studio frontend (excluding build artifacts)
+- Generate a standalone `App.tsx`
+- Swap `useWallet` to a Stellar Wallets Kit v2 standalone wallet hook (real wallets)
+- Add `LayoutStandalone` (no OHLOSS branding/sidebar)
+- Create `public/ohloss-config.js` for runtime configuration
 
-export default function App() {
-  const { publicKey, isConnected, connectDev } = useWallet();
-  const userAddress = publicKey ?? '';
-
-  return (
-    <Layout>
-      {!isConnected ? (
-        <button onClick={() => connectDev(1)}>Connect Wallet</button>
-      ) : (
-        <MyGame
-          userAddress={userAddress}
-          currentEpoch={1}
-          availableFP={1000000000n}
-          onBack={() => {}}
-          onStandingsRefresh={() => {}}
-          onGameComplete={() => {}}
-        />
-      )}
-    </Layout>
-  );
-}
+### Step 4: Configure Mainnet Contract (Runtime)
+Open the generated `public/ohloss-config.js` and set mainnet values after you deploy your contract.
+```js
+window.__OHLOSS_CONFIG__ = {
+  rpcUrl: "https://soroban-mainnet.stellar.org",
+  networkPassphrase: "Public Global Stellar Network ; September 2015",
+  contractIds: {
+    "my-game": "<YOUR_MAINNET_CONTRACT_ID>"
+  },
+  simulationSourceAddress: "<OPTIONAL_FUNDED_ADDRESS>"
+};
 ```
 
-Note: the dev wallet is for local testing only. For production, replace it with a real wallet integration.
+This lets you update contract addresses without rebuilding the frontend.
 
-### Step 4: Configure Mainnet Environment
-Create a `.env` in your standalone frontend:
+Note: the standalone frontend uses Stellar Wallets Kit v2 to manage real wallet connections
+(Freighter, etc.). Install a supported wallet extension before testing.
+
+### Step 5: Work With the Standalone Frontend
 ```bash
-VITE_SOROBAN_RPC_URL=https://soroban-mainnet.stellar.org
-VITE_NETWORK_PASSPHRASE=Public Global Stellar Network ; September 2015
-VITE_MY_GAME_CONTRACT_ID=<YOUR_MAINNET_CONTRACT_ID>
+cd ../my-game
+bun install
+
+# Local dev
+bun run dev
+
+# Production build
+bun run build
 ```
 
-### Step 5: Build and Deploy
+### Step 6: Deploy
 ```bash
 bun install
 bun run build

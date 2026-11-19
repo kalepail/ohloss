@@ -1,5 +1,5 @@
 import { StrKey } from '@stellar/stellar-sdk';
-import { DEV_ADMIN_ADDRESS, DEV_PLAYER1_ADDRESS, DEV_PLAYER2_ADDRESS, NETWORK } from '@/utils/constants';
+import { DEV_ADMIN_ADDRESS, DEV_PLAYER1_ADDRESS, DEV_PLAYER2_ADDRESS, NETWORK, RUNTIME_SIMULATION_SOURCE } from '@/utils/constants';
 
 async function horizonAccountExists(address: string): Promise<boolean> {
   const horizonUrl =
@@ -37,8 +37,13 @@ async function ensureTestnetAccountFunded(address: string): Promise<void> {
 
 export async function getSimulationSourceAddress(avoidAddresses: string[] = []): Promise<string> {
   const avoid = new Set(avoidAddresses.filter(Boolean));
-  // Prefer admin as it is most likely to exist (created/funded via Stellar CLI during deploy).
-  const candidates = [DEV_ADMIN_ADDRESS, DEV_PLAYER2_ADDRESS, DEV_PLAYER1_ADDRESS].filter(Boolean);
+  // Prefer explicit runtime config, then admin as it is most likely to exist (created/funded via Stellar CLI during deploy).
+  const candidates = [
+    RUNTIME_SIMULATION_SOURCE,
+    DEV_ADMIN_ADDRESS,
+    DEV_PLAYER2_ADDRESS,
+    DEV_PLAYER1_ADDRESS,
+  ].filter(Boolean);
 
   for (const candidate of candidates) {
     if (avoid.has(candidate)) continue;

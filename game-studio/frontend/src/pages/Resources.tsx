@@ -643,31 +643,7 @@ function ExportGameSection() {
         </section>
 
         <section className="content-block">
-          <h2>Step 2: Create Game Package Structure</h2>
-          <p>Your game package should follow this structure:</p>
-          <div className="code-block">
-            <pre>
-              <code>{`my-game/
-├── contracts/
-│   └── my-game/
-│       ├── src/
-│       │   ├── lib.rs
-│       │   └── test.rs
-│       └── Cargo.toml
-├── frontend/
-│   └── src/
-│       ├── games/
-│           └── my-game/
-│               ├── MyGame.tsx
-│               ├── myGameService.ts
-│               └── MyGame.css
-└── LICENSE`}</code>
-            </pre>
-          </div>
-        </section>
-
-        <section className="content-block">
-          <h2>Step 3: Deploy Your Contract to Mainnet</h2>
+          <h2>Step 2: Deploy Your Contract to Mainnet</h2>
           <p>Deploy your game contract and point it at the mainnet OHLOSS contract.</p>
           <div className="code-block">
             <pre>
@@ -710,66 +686,59 @@ stellar contract invoke --id <OHLOSS_MAINNET_CONTRACT_ID> --source <OHLOSS_ADMIN
         </section>
 
         <section className="content-block">
-          <h2>Step 4: Extract a Standalone Frontend</h2>
+          <h2>Step 3: Publish a Standalone Frontend</h2>
           <p>
-            Ship only your game UI in production. The easiest path is to copy the Game Studio
-            frontend into a new repo and wire it to a single game component.
+            Generate a production-ready frontend that renders only your game.
+            The publish script rewrites <code>App.tsx</code>, swaps in a standalone layout,
+            and uses Stellar Wallets Kit v2 for real wallet connections.
           </p>
           <div className="code-block">
             <pre>
-              <code>{`# From the repo root
-mkdir ../my-game-frontend
-rsync -av --exclude node_modules --exclude dist game-studio/frontend/ ../my-game-frontend/
-cd ../my-game-frontend
+              <code>{`# From game-studio/
+bun run publish my-game
 
-# Optional: remove unused games and docs to slim down the build
-# rm -rf src/pages src/components/GamesCatalog.tsx src/games/other-games`}</code>
+# Optional: choose a custom output directory
+bun run publish my-game --out ../my-game-frontend`}</code>
             </pre>
           </div>
-          <p>Update <code>src/App.tsx</code> to render just your game:</p>
+        </section>
+
+        <section className="content-block">
+          <h2>Step 4: Configure Mainnet Runtime Settings</h2>
+          <p>
+            Open <code>public/ohloss-config.js</code> in your standalone frontend and set the
+            mainnet RPC URL, network passphrase, and your new contract ID.
+          </p>
           <div className="code-block">
             <pre>
-              <code>{`import { Layout } from './components/Layout';
-import { useWallet } from './hooks/useWallet';
-import { MyGame } from './games/my-game/MyGame';
-
-export default function App() {
-  const { publicKey, isConnected, connectDev } = useWallet();
-  const userAddress = publicKey ?? '';
-
-  return (
-    <Layout>
-      {!isConnected ? (
-        <button onClick={() => connectDev(1)}>Connect Wallet</button>
-      ) : (
-        <MyGame
-          userAddress={userAddress}
-          currentEpoch={1}
-          availableFP={1000000000n}
-          onBack={() => {}}
-          onStandingsRefresh={() => {}}
-          onGameComplete={() => {}}
-        />
-      )}
-    </Layout>
-  );
-}`}</code>
+              <code>{`window.__OHLOSS_CONFIG__ = {
+  rpcUrl: "https://soroban-mainnet.stellar.org",
+  networkPassphrase: "Public Global Stellar Network ; September 2015",
+  contractIds: {
+    "my-game": "<YOUR_MAINNET_CONTRACT_ID>"
+  },
+  simulationSourceAddress: "<OPTIONAL_FUNDED_ADDRESS>"
+};`}</code>
             </pre>
           </div>
           <p>
-            The dev wallet is for local testing only. For production, replace it with a real wallet
-            integration (Freighter, passkeys, or your own signer).
+            This file is loaded at runtime, so you can update contract IDs without rebuilding the
+            frontend.
           </p>
         </section>
 
         <section className="content-block">
-          <h2>Step 5: Configure Mainnet Environment</h2>
-          <p>Create a <code>.env</code> in your standalone frontend:</p>
+          <h2>Step 5: Work With the Standalone Frontend</h2>
           <div className="code-block">
             <pre>
-              <code>{`VITE_SOROBAN_RPC_URL=https://soroban-mainnet.stellar.org
-VITE_NETWORK_PASSPHRASE=Public Global Stellar Network ; September 2015
-VITE_MY_GAME_CONTRACT_ID=<YOUR_MAINNET_CONTRACT_ID>`}</code>
+              <code>{`cd ../my-game
+bun install
+
+# Local dev
+bun run dev
+
+# Production build
+bun run build`}</code>
             </pre>
           </div>
         </section>
