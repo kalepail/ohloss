@@ -91,6 +91,20 @@ const GAMES = [
     url: 'https://ohloss-number-guess.pages.dev/',
     contractId: 'CDB6IODG5BNNVILLJXBXYZVR7NP4HDO2NL7WALWIXGIDMA6VY4V75CEX',
   },
+  {
+    id: 'chain-slicer',
+    name: 'CHAIN SLICER',
+    description: 'ZK-VERIFIED PUZZLE — SOLVE BY SLICING SHAPES TO ISOLATE EVERY ORB',
+    url: 'https://xray.games/',
+    contractId: 'CD4XBH2QTIYJYGFEF6PGXPDL7HQRB2SL5Z2CHPJZMRCHMUHXH7J7YOLT',
+  },
+  {
+    id: 'chain-snooker',
+    name: 'CHAIN SNOOKER',
+    description: 'POOL GAME WITH ONCHAIN PHYSICS VALIDATION',
+    url: 'https://xray.games/',
+    contractId: 'CBLPDJAKIDUSFUYTVI25HTR6G64J5NOMCVWEOAKW4DOLABJDZMYK4ZXJ',
+  },
 ]
 
 export function AccountPage() {
